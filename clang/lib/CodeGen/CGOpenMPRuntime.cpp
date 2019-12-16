@@ -8413,8 +8413,6 @@ public:
     for (const auto *C : CurMapperDir->clauselists()) {
       const auto *MC = cast<OMPMapClause>(C);
       for (const auto L : MC->component_lists()) {
-        InfoGen(L.first, L.second, MC->getMapType(), MC->getMapTypeModifiers(),
-                /*ReturnDevicePointer=*/false, MC->isImplicit());
         const ValueDecl *VD =
             std::get<0>(L) ? cast<ValueDecl>(std::get<0>(L)->getCanonicalDecl())
                            : nullptr;
