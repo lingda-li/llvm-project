@@ -1530,7 +1530,7 @@ public:
     /// The array of user-defined mappers passed to the runtime library.
     llvm::Value *MappersArray = nullptr;
     /// Indicate whether any user-defined mapper exists.
-    bool hasMapper = false;
+    bool HasMapper = false;
     /// The total number of pointers passed to the runtime library.
     unsigned NumberOfPtrs = 0u;
     /// Map between the a declaration of a capture and the corresponding base
@@ -1547,6 +1547,7 @@ public:
       SizesArray = nullptr;
       MapTypesArray = nullptr;
       MappersArray = nullptr;
+      HasMapper = false;
       NumberOfPtrs = 0u;
     }
     /// Return true if the current target data information has valid arrays.
