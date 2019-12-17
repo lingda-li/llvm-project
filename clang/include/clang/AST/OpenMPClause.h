@@ -4297,7 +4297,7 @@ class OMPMappableExprListClause : public OMPVarListClause<T>,
   /// Whether this clause is possible to have user-defined mappers associated.
   /// It should be true for map, to, and from clauses, and false for
   /// use_device_ptr and is_device_ptr.
-  bool HasMapper;
+  const bool SupportsMapper;
 
   /// C++ nested name specifier for the associated user-defined mapper.
   NestedNameSpecifierLoc MapperQualifierLoc;
@@ -4319,21 +4319,21 @@ protected:
   /// NumUniqueDeclarations: number of unique base declarations in this clause;
   /// 3) NumComponentLists: number of component lists in this clause; and 4)
   /// NumComponents: total number of expression components in the clause.
-  /// \param HasMapper Indicates whether this clause is possible to have
+  /// \param SupportsMapper Indicates whether this clause is possible to have
   /// user-defined mappers associated.
   /// \param MapperQualifierLocPtr C++ nested name specifier for the associated
   /// user-defined mapper.
   /// \param MapperIdInfoPtr The identifier of associated user-defined mapper.
   OMPMappableExprListClause(
       OpenMPClauseKind K, const OMPVarListLocTy &Locs,
-      const OMPMappableExprListSizeTy &Sizes, bool HasMapper = false,
+      const OMPMappableExprListSizeTy &Sizes, bool SupportsMapper = false,
       NestedNameSpecifierLoc *MapperQualifierLocPtr = nullptr,
       DeclarationNameInfo *MapperIdInfoPtr = nullptr)
       : OMPVarListClause<T>(K, Locs.StartLoc, Locs.LParenLoc, Locs.EndLoc,
                             Sizes.NumVars),
         NumUniqueDeclarations(Sizes.NumUniqueDeclarations),
         NumComponentLists(Sizes.NumComponentLists),
-        NumComponents(Sizes.NumComponents), HasMapper(HasMapper) {
+        NumComponents(Sizes.NumComponents), SupportsMapper(SupportsMapper) {
     if (MapperQualifierLocPtr)
       MapperQualifierLoc = *MapperQualifierLocPtr;
     if (MapperIdInfoPtr)
@@ -4532,7 +4532,7 @@ protected:
   /// Get the user-defined mapper references that are in the trailing objects of
   /// the class.
   MutableArrayRef<Expr *> getUDMapperRefs() {
-    assert(HasMapper &&
+    assert(SupportsMapper &&
            "Must be a clause that is possible to have user-defined mappers");
     return llvm::makeMutableArrayRef<Expr *>(
         static_cast<T *>(this)->template getTrailingObjects<Expr *>() +
@@ -4543,7 +4543,7 @@ protected:
   /// Get the user-defined mappers references that are in the trailing objects
   /// of the class.
   ArrayRef<Expr *> getUDMapperRefs() const {
-    assert(HasMapper &&
+    assert(SupportsMapper &&
            "Must be a clause that is possible to have user-defined mappers");
     return llvm::makeArrayRef<Expr *>(
         static_cast<const T *>(this)->template getTrailingObjects<Expr *>() +
@@ -4556,7 +4556,7 @@ protected:
   void setUDMapperRefs(ArrayRef<Expr *> DMDs) {
     assert(DMDs.size() == OMPVarListClause<T>::varlist_size() &&
            "Unexpected number of user-defined mappers.");
-    assert(HasMapper &&
+    assert(SupportsMapper &&
            "Must be a clause that is possible to have user-defined mappers");
     std::copy(DMDs.begin(), DMDs.end(), getUDMapperRefs().begin());
   }
@@ -4595,7 +4595,7 @@ public:
     ArrayRef<unsigned>::iterator NumListsCur;
 
     // Whether this clause is possible to have user-defined mappers associated.
-    bool HasMapper;
+    const bool SupportsMapper;
 
     // The user-defined mapper associated with the current declaration.
     ArrayRef<Expr *>::iterator MapperCur;
@@ -4620,18 +4620,19 @@ public:
     explicit const_component_lists_iterator(
         ArrayRef<ValueDecl *> UniqueDecls, ArrayRef<unsigned> DeclsListNum,
         ArrayRef<unsigned> CumulativeListSizes,
-        MappableExprComponentListRef Components, bool HasMapper,
+        MappableExprComponentListRef Components, bool SupportsMapper,
         ArrayRef<Expr *> Mappers)
         : const_component_lists_iterator::iterator_adaptor_base(
               Components.begin()),
           DeclCur(UniqueDecls.begin()), NumListsCur(DeclsListNum.begin()),
-          HasMapper(HasMapper), ListSizeCur(CumulativeListSizes.begin()),
+          SupportsMapper(SupportsMapper),
+          ListSizeCur(CumulativeListSizes.begin()),
           ListSizeEnd(CumulativeListSizes.end()), End(Components.end()) {
       assert(UniqueDecls.size() == DeclsListNum.size() &&
              "Inconsistent number of declarations and list sizes!");
       if (!DeclsListNum.empty())
         RemainingLists = *NumListsCur;
-      if (HasMapper)
+      if (SupportsMapper)
         MapperCur = Mappers.begin();
     }
 
@@ -4640,11 +4641,11 @@ public:
     explicit const_component_lists_iterator(
         const ValueDecl *Declaration, ArrayRef<ValueDecl *> UniqueDecls,
         ArrayRef<unsigned> DeclsListNum, ArrayRef<unsigned> CumulativeListSizes,
-        MappableExprComponentListRef Components, bool HasMapper,
+        MappableExprComponentListRef Components, bool SupportsMapper,
         ArrayRef<Expr *> Mappers)
         : const_component_lists_iterator(UniqueDecls, DeclsListNum,
                                          CumulativeListSizes, Components,
-                                         HasMapper, Mappers) {
+                                         SupportsMapper, Mappers) {
       // Look for the desired declaration. While we are looking for it, we
       // update the state so that we know the component where a given list
       // starts.
@@ -4660,7 +4661,7 @@ public:
         PrevListSize = *ListSizeCur;
         ++ListSizeCur;
 
-        if (HasMapper)
+        if (SupportsMapper)
           ++MapperCur;
       }
 
@@ -4692,7 +4693,7 @@ public:
     operator*() const {
       assert(ListSizeCur != ListSizeEnd && "Invalid iterator!");
       const ValueDecl *Mapper = nullptr;
-      if (HasMapper && *MapperCur)
+      if (SupportsMapper && *MapperCur)
         Mapper = cast<ValueDecl>(cast<DeclRefExpr>(*MapperCur)->getDecl());
       return std::make_tuple(
           *DeclCur,
@@ -4723,7 +4724,7 @@ public:
         if (!(--RemainingLists)) {
           ++DeclCur;
           ++NumListsCur;
-          if (HasMapper)
+          if (SupportsMapper)
             ++MapperCur;
           RemainingLists = *NumListsCur;
           assert(RemainingLists && "No lists in the following declaration??");
@@ -4742,15 +4743,15 @@ public:
   const_component_lists_iterator component_lists_begin() const {
     return const_component_lists_iterator(
         getUniqueDeclsRef(), getDeclNumListsRef(), getComponentListSizesRef(),
-        getComponentsRef(), HasMapper,
-        HasMapper ? getUDMapperRefs() : llvm::None);
+        getComponentsRef(), SupportsMapper,
+        SupportsMapper ? getUDMapperRefs() : llvm::None);
   }
   const_component_lists_iterator component_lists_end() const {
     return const_component_lists_iterator(
         ArrayRef<ValueDecl *>(), ArrayRef<unsigned>(), ArrayRef<unsigned>(),
         MappableExprComponentListRef(getComponentsRef().end(),
                                      getComponentsRef().end()),
-        HasMapper, llvm::None);
+        SupportsMapper, llvm::None);
   }
   const_component_lists_range component_lists() const {
     return {component_lists_begin(), component_lists_end()};
@@ -4762,8 +4763,8 @@ public:
   decl_component_lists_begin(const ValueDecl *VD) const {
     return const_component_lists_iterator(
         VD, getUniqueDeclsRef(), getDeclNumListsRef(),
-        getComponentListSizesRef(), getComponentsRef(), HasMapper,
-        HasMapper ? getUDMapperRefs() : llvm::None);
+        getComponentListSizesRef(), getComponentsRef(), SupportsMapper,
+        SupportsMapper ? getUDMapperRefs() : llvm::None);
   }
   const_component_lists_iterator decl_component_lists_end() const {
     return component_lists_end();
@@ -4915,8 +4916,9 @@ private:
                         OpenMPMapClauseKind MapType, bool MapTypeIsImplicit,
                         SourceLocation MapLoc, const OMPVarListLocTy &Locs,
                         const OMPMappableExprListSizeTy &Sizes)
-      : OMPMappableExprListClause(OMPC_map, Locs, Sizes, /*HasMapper=*/true,
-                                  &MapperQualifierLoc, &MapperIdInfo),
+      : OMPMappableExprListClause(OMPC_map, Locs, Sizes,
+                                  /*SupportsMapper=*/true, &MapperQualifierLoc,
+                                  &MapperIdInfo),
         MapType(MapType), MapTypeIsImplicit(MapTypeIsImplicit), MapLoc(MapLoc) {
     assert(llvm::array_lengthof(MapTypeModifiers) == MapModifiers.size() &&
            "Unexpected number of map type modifiers.");
@@ -4937,7 +4939,7 @@ private:
   /// NumComponents: total number of expression components in the clause.
   explicit OMPMapClause(const OMPMappableExprListSizeTy &Sizes)
       : OMPMappableExprListClause(OMPC_map, OMPVarListLocTy(), Sizes,
-                                  /*HasMapper=*/true) {}
+                                  /*SupportsMapper=*/true) {}
 
   /// Set map-type-modifier for the clause.
   ///
@@ -5814,7 +5816,7 @@ class OMPToClause final : public OMPMappableExprListClause<OMPToClause>,
                        DeclarationNameInfo MapperIdInfo,
                        const OMPVarListLocTy &Locs,
                        const OMPMappableExprListSizeTy &Sizes)
-      : OMPMappableExprListClause(OMPC_to, Locs, Sizes, /*HasMapper=*/true,
+      : OMPMappableExprListClause(OMPC_to, Locs, Sizes, /*SupportsMapper=*/true,
                                   &MapperQualifierLoc, &MapperIdInfo) {}
 
   /// Build an empty clause.
@@ -5826,7 +5828,7 @@ class OMPToClause final : public OMPMappableExprListClause<OMPToClause>,
   /// NumComponents: total number of expression components in the clause.
   explicit OMPToClause(const OMPMappableExprListSizeTy &Sizes)
       : OMPMappableExprListClause(OMPC_to, OMPVarListLocTy(), Sizes,
-                                  /*HasMapper=*/true) {}
+                                  /*SupportsMapper=*/true) {}
 
   /// Define the sizes of each trailing object array except the last one. This
   /// is required for TrailingObjects to work properly.
@@ -5933,8 +5935,9 @@ class OMPFromClause final
                          DeclarationNameInfo MapperIdInfo,
                          const OMPVarListLocTy &Locs,
                          const OMPMappableExprListSizeTy &Sizes)
-      : OMPMappableExprListClause(OMPC_from, Locs, Sizes, /*HasMapper=*/true,
-                                  &MapperQualifierLoc, &MapperIdInfo) {}
+      : OMPMappableExprListClause(OMPC_from, Locs, Sizes,
+                                  /*SupportsMapper=*/true, &MapperQualifierLoc,
+                                  &MapperIdInfo) {}
 
   /// Build an empty clause.
   ///
@@ -5945,7 +5948,7 @@ class OMPFromClause final
   /// NumComponents: total number of expression components in the clause.
   explicit OMPFromClause(const OMPMappableExprListSizeTy &Sizes)
       : OMPMappableExprListClause(OMPC_from, OMPVarListLocTy(), Sizes,
-                                  /*HasMapper=*/true) {}
+                                  /*SupportsMapper=*/true) {}
 
   /// Define the sizes of each trailing object array except the last one. This
   /// is required for TrailingObjects to work properly.
