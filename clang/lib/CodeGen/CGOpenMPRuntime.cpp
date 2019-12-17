@@ -7257,8 +7257,7 @@ private:
         // number of array elements instead of the number of total bytes.
         if (HasMapper)
           return CGF.Builder.getInt64(1);
-        else
-          return CGF.getTypeSize(BaseTy);
+        return CGF.getTypeSize(BaseTy);
       }
 
       llvm::Value *ElemSize;
@@ -7277,8 +7276,7 @@ private:
         // number of array elements instead of the number of total bytes.
         if (HasMapper)
           return CGF.Builder.getInt64(1);
-        else
-          return ElemSize;
+        return ElemSize;
       }
 
       if (const Expr *LenExpr = OAE->getLength()) {
@@ -7290,8 +7288,7 @@ private:
         // number of array elements instead of the number of total bytes.
         if (HasMapper)
           return LengthVal;
-        else
-          return CGF.Builder.CreateNUWMul(LengthVal, ElemSize);
+        return CGF.Builder.CreateNUWMul(LengthVal, ElemSize);
       }
       assert(!OAE->getLength() && OAE->getColonLoc().isValid() &&
              OAE->getLowerBound() && "expected array_section[lb:].");
@@ -7310,15 +7307,13 @@ private:
       // number of array elements instead of the number of total bytes.
       if (HasMapper)
         return CGF.Builder.CreateExactUDiv(LengthVal, ElemSize);
-      else
-        return LengthVal;
+      return LengthVal;
     }
     // In case that a user-defined mapper is attached, its size is the
     // number of array elements instead of the number of total bytes.
     if (HasMapper)
       return CGF.Builder.getInt64(1);
-    else
-      return CGF.getTypeSize(ExprTy);
+    return CGF.getTypeSize(ExprTy);
   }
 
   /// Return the corresponding bits for a given map clause modifier. Add
@@ -8709,8 +8704,9 @@ emitOffloadingArrays(CodeGenFunction &CGF,
         CGF.CreateMemTemp(PointerArrayType, ".offload_baseptrs").getPointer();
     Info.PointersArray =
         CGF.CreateMemTemp(PointerArrayType, ".offload_ptrs").getPointer();
-    Info.MappersArray =
-        CGF.CreateMemTemp(PointerArrayType, ".offload_mappers").getPointer();
+    Address MappersArray =
+        CGF.CreateMemTemp(PointerArrayType, ".offload_mappers");
+    Info.MappersArray = MappersArray.getPointer();
 
     // If we don't have any VLA types or other types that require runtime
     // evaluation, we can use a constant array for the map sizes, otherwise we
@@ -8796,14 +8792,10 @@ emitOffloadingArrays(CodeGenFunction &CGF,
       if (Mappers[I]) {
         MFunc = CGM.getOpenMPRuntime().getUserDefinedMapperFunc(
             cast<OMPDeclareMapperDecl>(Mappers[I]));
+        MFunc = CGF.Builder.CreatePointerCast(MFunc, CGM.VoidPtrTy);
         Info.HasMapper = true;
       }
-      llvm::Value *M = CGF.Builder.CreateConstInBoundsGEP2_32(
-          llvm::ArrayType::get(CGM.VoidPtrTy, Info.NumberOfPtrs),
-          Info.MappersArray, 0, I);
-      M = CGF.Builder.CreatePointerBitCastOrAddrSpaceCast(
-          M, MFunc->getType()->getPointerTo(/*AddrSpace=*/0));
-      Address MAddr(M, Ctx.getTypeAlignInChars(Ctx.VoidPtrTy));
+      Address MAddr = CGF.Builder.CreateConstArrayGEP(MappersArray, I);
       CGF.Builder.CreateStore(MFunc, MAddr);
     }
   }
@@ -8835,14 +8827,10 @@ static void emitOffloadingArraysArgument(
         Info.MapTypesArray,
         /*Idx0=*/0,
         /*Idx1=*/0);
-    if (Info.HasMapper) {
-      MappersArrayArg = CGF.Builder.CreateConstInBoundsGEP2_32(
-          llvm::ArrayType::get(CGM.VoidPtrTy, Info.NumberOfPtrs),
-          Info.MappersArray,
-          /*Idx0=*/0, /*Idx1=*/0);
-    } else {
-      MappersArrayArg = llvm::ConstantPointerNull::get(CGM.VoidPtrPtrTy);
-    }
+    MappersArrayArg =
+        Info.HasMapper
+            ? CGF.Builder.CreatePointerCast(Info.MappersArray, CGM.VoidPtrPtrTy)
+            : llvm::ConstantPointerNull::get(CGM.VoidPtrPtrTy);
   } else {
     BasePointersArrayArg = llvm::ConstantPointerNull::get(CGM.VoidPtrPtrTy);
     PointersArrayArg = llvm::ConstantPointerNull::get(CGM.VoidPtrPtrTy);

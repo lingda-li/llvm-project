@@ -838,8 +838,7 @@ public:
   void emitUserDefinedMapper(const OMPDeclareMapperDecl *D,
                              CodeGenFunction *CGF = nullptr);
   /// Get the function for the specified user-defined mapper, if any.
-  virtual llvm::Function *
-  getUserDefinedMapperFunc(const OMPDeclareMapperDecl *D);
+  llvm::Function *getUserDefinedMapperFunc(const OMPDeclareMapperDecl *D);
 
   /// Emits outlined function for the specified OpenMP parallel directive
   /// \a D. This outlined function has type void(*)(kmp_int32 *ThreadID,
@@ -1553,7 +1552,7 @@ public:
     /// Return true if the current target data information has valid arrays.
     bool isValid() {
       return BasePointersArray && PointersArray && SizesArray &&
-             MapTypesArray && MappersArray && NumberOfPtrs;
+             MapTypesArray && (!HasMapper || MappersArray) && NumberOfPtrs;
     }
     bool requiresDevicePointerInfo() { return RequiresDevicePointerInfo; }
   };
