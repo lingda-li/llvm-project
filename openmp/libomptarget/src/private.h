@@ -15,20 +15,25 @@
 
 #include <omptarget.h>
 
+#include <cassert>
 #include <cstdint>
 
 extern int target_data_begin(DeviceTy &Device, int32_t arg_num,
-    void **args_base, void **args, int64_t *arg_sizes, int64_t *arg_types);
+                             void **args_base, void **args, int64_t *arg_sizes,
+                             int64_t *arg_types, void **arg_mappers);
 
 extern int target_data_end(DeviceTy &Device, int32_t arg_num, void **args_base,
-    void **args, int64_t *arg_sizes, int64_t *arg_types);
+                           void **args, int64_t *arg_sizes, int64_t *arg_types,
+                           void **arg_mappers);
 
 extern int target_data_update(DeviceTy &Device, int32_t arg_num,
-    void **args_base, void **args, int64_t *arg_sizes, int64_t *arg_types);
+                              void **args_base, void **args, int64_t *arg_sizes,
+                              int64_t *arg_types, void **arg_mappers);
 
 extern int target(int64_t device_id, void *host_ptr, int32_t arg_num,
-    void **args_base, void **args, int64_t *arg_sizes, int64_t *arg_types,
-    int32_t team_num, int32_t thread_limit, int IsTeamConstruct);
+                  void **args_base, void **args, int64_t *arg_sizes,
+                  int64_t *arg_types, void **arg_mappers, int32_t team_num,
+                  int32_t thread_limit, int IsTeamConstruct);
 
 extern int CheckDeviceAndCtors(int64_t device_id);
 
@@ -57,7 +62,18 @@ struct MapComponentInfoTy {
 // implementation here.
 struct MapperComponentsTy {
   std::vector<MapComponentInfoTy> Components;
+  int32_t size() { return Components.size(); }
+  MapComponentInfoTy *get(int32_t i) {
+    assert(i < size() && "Try to access a component that does not exist");
+    return &Components[i];
+  }
 };
+
+// The mapper function pointer type. It follows the signature below:
+// void .omp_mapper.<type_name>.<mapper_id>.(void *rt_mapper_handle,
+//                                           void *base, void *begin,
+//                                           size_t size, int64_t type);
+typedef void (*MapperFuncPtrTy)(void *, void *, void *, int64_t, int64_t);
 
 ////////////////////////////////////////////////////////////////////////////////
 // implemtation for fatal messages
