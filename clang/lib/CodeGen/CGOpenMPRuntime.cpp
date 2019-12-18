@@ -7254,7 +7254,7 @@ private:
       SmallVector<OMPClauseMappableExprCommon::MappableExprComponentListRef, 4>>
       DevPointersMap;
 
-  llvm::Value *getExprTypeSize(const Expr *E, bool HasMapper) const {
+  llvm::Value *getExprTypeSize(const Expr *E) const {
     QualType ExprTy = E->getType().getCanonicalType();
 
     // Reference types are ignored for mapping purposes.
@@ -7273,13 +7273,8 @@ private:
       // not specified too, that means we are using the whole length of the
       // base.
       if (!OAE->getLength() && OAE->getColonLoc().isValid() &&
-          !OAE->getLowerBound()) {
-        // In case that a user-defined mapper is attached, its size is the
-        // number of array elements instead of the number of total bytes.
-        if (HasMapper)
-          return CGF.Builder.getInt64(1);
+          !OAE->getLowerBound())
         return CGF.getTypeSize(BaseTy);
-      }
 
       llvm::Value *ElemSize;
       if (const auto *PTy = BaseTy->getAs<PointerType>()) {
@@ -7292,23 +7287,14 @@ private:
 
       // If we don't have a length at this point, that is because we have an
       // array section with a single element.
-      if (!OAE->getLength() && OAE->getColonLoc().isInvalid()) {
-        // In case that a user-defined mapper is attached, its size is the
-        // number of array elements instead of the number of total bytes.
-        if (HasMapper)
-          return CGF.Builder.getInt64(1);
+      if (!OAE->getLength() && OAE->getColonLoc().isInvalid())
         return ElemSize;
-      }
 
       if (const Expr *LenExpr = OAE->getLength()) {
         llvm::Value *LengthVal = CGF.EmitScalarExpr(LenExpr);
         LengthVal = CGF.EmitScalarConversion(LengthVal, LenExpr->getType(),
                                              CGF.getContext().getSizeType(),
                                              LenExpr->getExprLoc());
-        // In case that a user-defined mapper is attached, its size is the
-        // number of array elements instead of the number of total bytes.
-        if (HasMapper)
-          return LengthVal;
         return CGF.Builder.CreateNUWMul(LengthVal, ElemSize);
       }
       assert(!OAE->getLength() && OAE->getColonLoc().isValid() &&
@@ -7324,16 +7310,8 @@ private:
       llvm::Value *TrueVal = CGF.Builder.CreateNUWSub(LengthVal, LBVal);
       LengthVal = CGF.Builder.CreateSelect(
           Cmp, TrueVal, llvm::ConstantInt::get(CGF.SizeTy, 0));
-      // In case that a user-defined mapper is attached, its size is the
-      // number of array elements instead of the number of total bytes.
-      if (HasMapper)
-        return CGF.Builder.CreateExactUDiv(LengthVal, ElemSize);
       return LengthVal;
     }
-    // In case that a user-defined mapper is attached, its size is the
-    // number of array elements instead of the number of total bytes.
-    if (HasMapper)
-      return CGF.Builder.getInt64(1);
     return CGF.getTypeSize(ExprTy);
   }
 
@@ -7790,16 +7768,15 @@ private:
           CombinedInfo.Mappers.push_back(nullptr);
           break;
         }
+        llvm::Value *Size = getExprTypeSize(I->getAssociatedExpression());
         if (!IsMemberPointer) {
           CombinedInfo.BasePointers.push_back(BP.getPointer());
           CombinedInfo.Pointers.push_back(LB.getPointer());
+          CombinedInfo.Sizes.push_back(
+              CGF.Builder.CreateIntCast(Size, CGF.Int64Ty, /*isSigned=*/true));
 
           // If Mapper is valid, the last component inherits the mapper.
           bool HasMapper = Mapper && Next == CE;
-          llvm::Value *Size =
-              getExprTypeSize(I->getAssociatedExpression(), HasMapper);
-          CombinedInfo.Sizes.push_back(
-              CGF.Builder.CreateIntCast(Size, CGF.Int64Ty, /*isSigned=*/true));
           CombinedInfo.Mappers.push_back(HasMapper ? Mapper : nullptr);
 
           // We need to add a pointer flag for each map that comes from the
@@ -9000,6 +8977,9 @@ void CGOpenMPRuntime::emitUserDefinedMapper(const OMPDeclareMapperDecl *D,
   llvm::Value *Size = MapperCGF.EmitLoadOfScalar(
       MapperCGF.GetAddrOfLocalVar(&SizeArg), /*Volatile=*/false,
       C.getPointerType(Int64Ty), Loc);
+  // Convert the size in bytes into the number of array elements.
+  Size = MapperCGF.Builder.CreateExactUDiv(
+      Size, MapperCGF.Builder.getInt64(ElementSize.getQuantity()));
   llvm::Value *PtrBegin = MapperCGF.Builder.CreateBitCast(
       MapperCGF.GetAddrOfLocalVar(&BeginArg).getPointer(),
       CGM.getTypes().ConvertTypeForMem(C.getPointerType(PtrTy)));

@@ -23,27 +23,38 @@
 // Mapper function code generation and runtime interface.
 
 // CK0-LABEL: @.__omp_offloading_{{.*}}foo{{.*}}.region_id = weak constant i8 0
-// CK0: [[SIZES:@.+]] = {{.+}}constant [1 x i64] [i64 1]
+// CK0-64: [[SIZES:@.+]] = {{.+}}constant [1 x i64] [i64 16]
+// CK0-32: [[SIZES:@.+]] = {{.+}}constant [1 x i64] [i64 8]
 // CK0: [[TYPES:@.+]] = {{.+}}constant [1 x i64] [i64 35]
-// CK0: [[NWSIZES:@.+]] = {{.+}}constant [1 x i64] [i64 1]
+// CK0-64: [[NWSIZES:@.+]] = {{.+}}constant [1 x i64] [i64 16]
+// CK0-32: [[NWSIZES:@.+]] = {{.+}}constant [1 x i64] [i64 8]
 // CK0: [[NWTYPES:@.+]] = {{.+}}constant [1 x i64] [i64 35]
-// CK0: [[TEAMSIZES:@.+]] = {{.+}}constant [1 x i64] [i64 1]
+// CK0-64: [[TEAMSIZES:@.+]] = {{.+}}constant [1 x i64] [i64 16]
+// CK0-32: [[TEAMSIZES:@.+]] = {{.+}}constant [1 x i64] [i64 8]
 // CK0: [[TEAMTYPES:@.+]] = {{.+}}constant [1 x i64] [i64 33]
-// CK0: [[TEAMNWSIZES:@.+]] = {{.+}}constant [1 x i64] [i64 1]
+// CK0-64: [[TEAMNWSIZES:@.+]] = {{.+}}constant [1 x i64] [i64 16]
+// CK0-32: [[TEAMNWSIZES:@.+]] = {{.+}}constant [1 x i64] [i64 8]
 // CK0: [[TEAMNWTYPES:@.+]] = {{.+}}constant [1 x i64] [i64 33]
-// CK0: [[EDSIZES:@.+]] = {{.+}}constant [1 x i64] [i64 1]
+// CK0-64: [[EDSIZES:@.+]] = {{.+}}constant [1 x i64] [i64 16]
+// CK0-32: [[EDSIZES:@.+]] = {{.+}}constant [1 x i64] [i64 8]
 // CK0: [[EDTYPES:@.+]] = {{.+}}constant [1 x i64] [i64 33]
-// CK0: [[EDNWSIZES:@.+]] = {{.+}}constant [1 x i64] [i64 1]
+// CK0-64: [[EDNWSIZES:@.+]] = {{.+}}constant [1 x i64] [i64 16]
+// CK0-32: [[EDNWSIZES:@.+]] = {{.+}}constant [1 x i64] [i64 8]
 // CK0: [[EDNWTYPES:@.+]] = {{.+}}constant [1 x i64] [i64 33]
-// CK0: [[EXDSIZES:@.+]] = {{.+}}constant [1 x i64] [i64 1]
+// CK0-64: [[EXDSIZES:@.+]] = {{.+}}constant [1 x i64] [i64 16]
+// CK0-32: [[EXDSIZES:@.+]] = {{.+}}constant [1 x i64] [i64 8]
 // CK0: [[EXDTYPES:@.+]] = {{.+}}constant [1 x i64] [i64 34]
-// CK0: [[EXDNWSIZES:@.+]] = {{.+}}constant [1 x i64] [i64 1]
+// CK0-64: [[EXDNWSIZES:@.+]] = {{.+}}constant [1 x i64] [i64 16]
+// CK0-32: [[EXDNWSIZES:@.+]] = {{.+}}constant [1 x i64] [i64 8]
 // CK0: [[EXDNWTYPES:@.+]] = {{.+}}constant [1 x i64] [i64 34]
-// CK0: [[TSIZES:@.+]] = {{.+}}constant [1 x i64] [i64 1]
+// CK0-64: [[TSIZES:@.+]] = {{.+}}constant [1 x i64] [i64 16]
+// CK0-32: [[TSIZES:@.+]] = {{.+}}constant [1 x i64] [i64 8]
 // CK0: [[TTYPES:@.+]] = {{.+}}constant [1 x i64] [i64 33]
-// CK0: [[FSIZES:@.+]] = {{.+}}constant [1 x i64] [i64 1]
+// CK0-64: [[FSIZES:@.+]] = {{.+}}constant [1 x i64] [i64 16]
+// CK0-32: [[FSIZES:@.+]] = {{.+}}constant [1 x i64] [i64 8]
 // CK0: [[FTYPES:@.+]] = {{.+}}constant [1 x i64] [i64 34]
-// CK0: [[FNWSIZES:@.+]] = {{.+}}constant [1 x i64] [i64 1]
+// CK0-64: [[FNWSIZES:@.+]] = {{.+}}constant [1 x i64] [i64 16]
+// CK0-32: [[FNWSIZES:@.+]] = {{.+}}constant [1 x i64] [i64 8]
 // CK0: [[FNWTYPES:@.+]] = {{.+}}constant [1 x i64] [i64 34]
 
 class C {
@@ -60,7 +71,9 @@ public:
 // CK0: store i8* %{{[^,]+}}, i8** [[VPTRADDR:%[^,]+]]
 // CK0: store i64 %{{[^,]+}}, i{{64|32}}* [[SIZEADDR:%[^,]+]]
 // CK0: store i64 %{{[^,]+}}, i64* [[TYPEADDR:%[^,]+]]
-// CK0-DAG: [[SIZE:%.+]] = load i64, i64* [[SIZEADDR]]
+// CK0-DAG: [[BYTESIZE:%.+]] = load i64, i64* [[SIZEADDR]]
+// CK0-64-DAG: [[SIZE:%.+]] = udiv exact i64 [[BYTESIZE]], 16
+// CK0-32-DAG: [[SIZE:%.+]] = udiv exact i64 [[BYTESIZE]], 8
 // CK0-DAG: [[TYPE:%.+]] = load i64, i64* [[TYPEADDR]]
 // CK0-DAG: [[HANDLE:%.+]] = load i8*, i8** [[HANDLEADDR]]
 // CK0-DAG: [[PTRBEGIN:%.+]] = bitcast i8** [[VPTRADDR]] to %class.C**
@@ -439,7 +452,8 @@ public:
 // CK1: store i8* %{{[^,]+}}, i8** [[VPTRADDR:%[^,]+]]
 // CK1: store i64 %{{[^,]+}}, i{{64|32}}* [[SIZEADDR:%[^,]+]]
 // CK1: store i64 %{{[^,]+}}, i64* [[TYPEADDR:%[^,]+]]
-// CK1-DAG: [[SIZE:%.+]] = load i64, i64* [[SIZEADDR]]
+// CK1-DAG: [[BYTESIZE:%.+]] = load i64, i64* [[SIZEADDR]]
+// CK1-DAG: [[SIZE:%.+]] = udiv exact i64 [[BYTESIZE]], 4
 // CK1-DAG: [[TYPE:%.+]] = load i64, i64* [[TYPEADDR]]
 // CK1-DAG: [[HANDLE:%.+]] = load i8*, i8** [[HANDLEADDR]]
 // CK1-DAG: [[PTRBEGIN:%.+]] = bitcast i8** [[VPTRADDR]] to %class.C**
@@ -601,7 +615,8 @@ public:
 // CK2: store i8* %{{[^,]+}}, i8** [[VPTRADDR:%[^,]+]]
 // CK2: store i64 %{{[^,]+}}, i{{64|32}}* [[SIZEADDR:%[^,]+]]
 // CK2: store i64 %{{[^,]+}}, i64* [[TYPEADDR:%[^,]+]]
-// CK2-DAG: [[SIZE:%.+]] = load i64, i64* [[SIZEADDR]]
+// CK2-DAG: [[BYTESIZE:%.+]] = load i64, i64* [[SIZEADDR]]
+// CK2-DAG: [[SIZE:%.+]] = udiv exact i64 [[BYTESIZE]], 16
 // CK2-DAG: [[TYPE:%.+]] = load i64, i64* [[TYPEADDR]]
 // CK2-DAG: [[HANDLE:%.+]] = load i8*, i8** [[HANDLEADDR]]
 // CK2-DAG: [[PTRBEGIN:%.+]] = bitcast i8** [[VPTRADDR]] to %class.C**
@@ -699,7 +714,7 @@ public:
 // CK2-DAG: br label %[[TYEND]]
 // CK2-DAG: [[TYEND]]
 // CK2-DAG: [[TYPE1:%.+]] = phi i64 [ [[ALLOCTYPE]], %[[ALLOC]] ], [ [[TOTYPE]], %[[TO]] ], [ [[FROMTYPE]], %[[FROM]] ], [ [[MEMBERTYPE]], %[[TOELSE]] ]
-// CK2: call void [[BMPRFUNC]](i8* [[HANDLE]], i8* [[BPTRADDR1BC]], i8* [[PTRADDR1BC]], i64 1, i64 [[TYPE1]])
+// CK2: call void [[BMPRFUNC]](i8* [[HANDLE]], i8* [[BPTRADDR1BC]], i8* [[PTRADDR1BC]], i64 8, i64 [[TYPE1]])
 // CK2: [[PTRNEXT]] = getelementptr %class.C*, %class.C** [[PTR]], i32 1
 // CK2: [[ISDONE:%.+]] = icmp eq %class.C** [[PTRNEXT]], [[PTREND]]
 // CK2: br i1 [[ISDONE]], label %[[LEXIT:[^,]+]], label %[[LBODY]]
@@ -797,7 +812,8 @@ void foo(int a){
   // CK3-DAG: [[CP2:%.+]] = bitcast i8** [[P2]] to %class.C**
   // CK3-DAG: store %class.B* [[BVAL]], %class.B** [[CBP2]]
   // CK3-DAG: store %class.C* [[BC]], %class.C** [[CP2]]
-  // CK3-DAG: store i64 1, i64* [[S2]]
+  // CK3-64-DAG: store i64 16, i64* [[S2]]
+  // CK3-32-DAG: store i64 8, i64* [[S2]]
   // CK3-DAG: store i8* bitcast (void (i8*, i8*, i8*, i64, i64)* [[MPRFUNC]] to i8*), i8** [[MPR2]]
   // CK3-DAG: [[BP3:%.+]] = getelementptr inbounds {{.+}}[[BPS]], i32 0, i32 2
   // CK3-DAG: [[P3:%.+]] = getelementptr inbounds {{.+}}[[PS]], i32 0, i32 2
@@ -808,7 +824,8 @@ void foo(int a){
   // CK3-DAG: store [10 x %class.C]* [[CVAL]], [10 x %class.C]** [[CBP3]]
   // CK3-DAG: [[CVALGEP:%.+]] = getelementptr inbounds {{.+}}[[CVAL]], i{{64|32}} 0, i{{64|32}} 0
   // CK3-DAG: store %class.C* [[CVALGEP]], %class.C** [[CP3]]
-  // CK3-DAG: store i64 10, i64* [[S3]]
+  // CK3-64-DAG: store i64 160, i64* [[S3]]
+  // CK3-32-DAG: store i64 80, i64* [[S3]]
   // CK3-DAG: store i8* bitcast (void (i8*, i8*, i8*, i64, i64)* [[MPRFUNC]] to i8*), i8** [[MPR3]]
   // CK3: call void [[KERNEL:@.+]](%class.B* [[BVAL]], [10 x %class.C]* [[CVAL]])
   #pragma omp target map(mapper(id),tofrom: c[0:10], b.c)
