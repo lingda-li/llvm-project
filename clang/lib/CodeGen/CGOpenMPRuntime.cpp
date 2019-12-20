@@ -8748,7 +8748,7 @@ emitOffloadingArrays(CodeGenFunction &CGF,
       // Fill up the mapper array.
       llvm::Value *MFunc = llvm::ConstantPointerNull::get(CGM.VoidPtrTy);
       if (CombinedInfo.Mappers[I]) {
-        MFunc = CGM.getOpenMPRuntime().getUserDefinedMapperFunc(
+        MFunc = CGM.getOpenMPRuntime().getOrCreateUserDefinedMapperFunc(
             cast<OMPDeclareMapperDecl>(CombinedInfo.Mappers[I]));
         MFunc = CGF.Builder.CreatePointerCast(MFunc, CGM.VoidPtrTy);
         Info.HasMapper = true;
@@ -9148,8 +9148,8 @@ void CGOpenMPRuntime::emitUserDefinedMapper(const OMPDeclareMapperDecl *D,
                                      CurSizeArg, CurMapType};
     if (Info.Mappers[I]) {
       // Call the corresponding mapper function.
-      llvm::Function *MapperFunc =
-          getUserDefinedMapperFunc(cast<OMPDeclareMapperDecl>(Info.Mappers[I]));
+      llvm::Function *MapperFunc = getOrCreateUserDefinedMapperFunc(
+          cast<OMPDeclareMapperDecl>(Info.Mappers[I]));
       assert(MapperFunc && "Expect a valid mapper function is available.");
       MapperCGF.EmitNounwindRuntimeCall(MapperFunc, OffloadingArgs);
     } else {
@@ -9240,8 +9240,8 @@ void CGOpenMPRuntime::emitUDMapperArrayInitOrDel(
       createRuntimeFunction(OMPRTL__tgt_push_mapper_component), OffloadingArgs);
 }
 
-llvm::Function *
-CGOpenMPRuntime::getUserDefinedMapperFunc(const OMPDeclareMapperDecl *D) {
+llvm::Function *CGOpenMPRuntime::getOrCreateUserDefinedMapperFunc(
+    const OMPDeclareMapperDecl *D) {
   auto I = UDMMap.find(D);
   if (I != UDMMap.end())
     return I->second;
