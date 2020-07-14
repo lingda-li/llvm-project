@@ -85,7 +85,7 @@ void without_schedule_clause(float *a, float *b, float *c, float *d) {
   }
 }
 
-// CHECK: define {{.*}}void @{{.+}}(i32* noalias [[GBL_TIDP:%.+]], i32* noalias [[BND_TID:%.+]], float** dereferenceable({{[0-9]+}}) [[APTR:%.+]], float** dereferenceable({{[0-9]+}}) [[BPTR:%.+]], float** dereferenceable({{[0-9]+}}) [[CPTR:%.+]], float** dereferenceable({{[0-9]+}}) [[DPTR:%.+]])
+// CHECK: define {{.*}}void @{{.+}}(i32* noalias [[GBL_TIDP:%.+]], i32* noalias [[BND_TID:%.+]], float** nonnull align {{[0-9]+}} dereferenceable({{[0-9]+}}) [[APTR:%.+]], float** nonnull align {{[0-9]+}} dereferenceable({{[0-9]+}}) [[BPTR:%.+]], float** nonnull align {{[0-9]+}} dereferenceable({{[0-9]+}}) [[CPTR:%.+]], float** nonnull align {{[0-9]+}} dereferenceable({{[0-9]+}}) [[DPTR:%.+]])
 // CHECK:  [[TID_ADDR:%.+]] = alloca i32*
 // CHECK:  [[IV:%.+iv]] = alloca i32
 // CHECK:  [[LB:%.+lb]] = alloca i32
@@ -143,7 +143,7 @@ void static_not_chunked(float *a, float *b, float *c, float *d) {
   #pragma omp target
   #pragma omp teams
 #ifdef OMP5
-  #pragma omp distribute simd dist_schedule(static) safelen(32) if(simd: true)
+  #pragma omp distribute simd dist_schedule(static) safelen(32) if(simd: true) nontemporal(a, b)
 #else
   #pragma omp distribute simd dist_schedule(static) safelen(32)
 #endif // OMP5
@@ -152,7 +152,7 @@ void static_not_chunked(float *a, float *b, float *c, float *d) {
   }
 }
 
-// CHECK: define {{.*}}void @.omp_outlined.{{.*}}(i32* noalias [[GBL_TIDP:%.+]], i32* noalias [[BND_TID:%.+]], float** dereferenceable({{[0-9]+}}) [[APTR:%.+]], float** dereferenceable({{[0-9]+}}) [[BPTR:%.+]], float** dereferenceable({{[0-9]+}}) [[CPTR:%.+]], float** dereferenceable({{[0-9]+}}) [[DPTR:%.+]])
+// CHECK: define {{.*}}void @.omp_outlined.{{.*}}(i32* noalias [[GBL_TIDP:%.+]], i32* noalias [[BND_TID:%.+]], float** nonnull align {{[0-9]+}} dereferenceable({{[0-9]+}}) [[APTR:%.+]], float** nonnull align {{[0-9]+}} dereferenceable({{[0-9]+}}) [[BPTR:%.+]], float** nonnull align {{[0-9]+}} dereferenceable({{[0-9]+}}) [[CPTR:%.+]], float** nonnull align {{[0-9]+}} dereferenceable({{[0-9]+}}) [[DPTR:%.+]])
 // CHECK:  [[TID_ADDR:%.+]] = alloca i32*
 // CHECK:  [[IV:%.+iv]] = alloca i32
 // CHECK:  [[LB:%.+lb]] = alloca i32
@@ -189,6 +189,11 @@ void static_not_chunked(float *a, float *b, float *c, float *d) {
 // CHECK:  [[BBINNBODY]]:
 // CHECK:  {{.+}} = load i32, i32* [[IV]]
 // ... loop body ...
+// OMP45-NOT: !nontemporal
+// OMP50:  load float*,{{.*}}!nontemporal
+// OMP50:  load float*,{{.*}}!nontemporal
+// OMP50-NOT: !nontemporal
+
 // CHECK:  br label %[[BBBODYCONT:.+]]
 // CHECK:  [[BBBODYCONT]]:
 // CHECK:  br label %[[BBINNINC:.+]]
@@ -214,7 +219,7 @@ void static_chunked(float *a, float *b, float *c, float *d) {
   }
 }
 
-// CHECK: define {{.*}}void @.omp_outlined.{{.*}}(i32* noalias [[GBL_TIDP:%.+]], i32* noalias [[BND_TID:%.+]], float** dereferenceable({{[0-9]+}}) [[APTR:%.+]], float** dereferenceable({{[0-9]+}}) [[BPTR:%.+]], float** dereferenceable({{[0-9]+}}) [[CPTR:%.+]], float** dereferenceable({{[0-9]+}}) [[DPTR:%.+]])
+// CHECK: define {{.*}}void @.omp_outlined.{{.*}}(i32* noalias [[GBL_TIDP:%.+]], i32* noalias [[BND_TID:%.+]], float** nonnull align {{[0-9]+}} dereferenceable({{[0-9]+}}) [[APTR:%.+]], float** nonnull align {{[0-9]+}} dereferenceable({{[0-9]+}}) [[BPTR:%.+]], float** nonnull align {{[0-9]+}} dereferenceable({{[0-9]+}}) [[CPTR:%.+]], float** nonnull align {{[0-9]+}} dereferenceable({{[0-9]+}}) [[DPTR:%.+]])
 // CHECK:  [[TID_ADDR:%.+]] = alloca i32*
 // CHECK:  [[IV:%.+iv]] = alloca i32
 // CHECK:  [[LB:%.+lb]] = alloca i32
@@ -271,7 +276,7 @@ void test_precond() {
   #pragma omp target
   #pragma omp teams
 #ifdef OMP5
-  #pragma omp distribute simd linear(i) if(a)
+  #pragma omp distribute simd linear(i) if(a) nontemporal(i)
 #else
   #pragma omp distribute simd linear(i)
 #endif // OMP5
@@ -279,7 +284,7 @@ void test_precond() {
 }
 
 // a is passed as a parameter to the outlined functions
-// CHECK:  define {{.*}}void @.omp_outlined.{{.*}}(i32* noalias [[GBL_TIDP:%.+]], i32* noalias [[BND_TID:%.+]], i8* dereferenceable({{[0-9]+}}) [[APARM:%.+]])
+// CHECK:  define {{.*}}void @.omp_outlined.{{.*}}(i32* noalias [[GBL_TIDP:%.+]], i32* noalias [[BND_TID:%.+]], i8* nonnull align {{[0-9]+}} dereferenceable({{[0-9]+}}) [[APARM:%.+]])
 // CHECK:  store i8* [[APARM]], i8** [[APTRADDR:%.+]]
 // ..many loads of %0..
 // CHECK:  [[A2:%.+]] = load i8*, i8** [[APTRADDR]]
@@ -293,6 +298,9 @@ void test_precond() {
 // CHECK:  br i1 [[ACMP]], label %[[PRECOND_THEN:.+]], label %[[PRECOND_END:.+]]
 // CHECK:  [[PRECOND_THEN]]
 // CHECK:  call void @__kmpc_for_static_init_4
+// OMP45-NOT: !nontemporal
+// OMP50:  store i8 {{.*}}!nontemporal
+// OMP50-NOT: !nontemporal
 // CHECK:  call void @__kmpc_for_static_fini
 // CHECK:  [[PRECOND_END]]
 

@@ -1,4 +1,11 @@
+// Test without serialization:
 // RUN: %clang_cc1 %s -ast-dump | FileCheck %s
+//
+// Test with serialization:
+// RUN: %clang_cc1 -emit-pch -o %t %s
+// RUN: %clang_cc1 -x c++ -include-pch %t -ast-dump-all /dev/null \
+// RUN: | sed -e "s/ <undeserialized declarations>//" -e "s/ imported//" \
+// RUN: | FileCheck %s
 
 // Verify that the language address space attribute is
 // understood correctly by clang.
@@ -22,10 +29,10 @@ void langas() {
   // CHECK: VarDecl {{.*}} z_constant '__constant int *'
   [[clang::opencl_constant]] int *z_constant;
 
-  // CHECK: VarDecl {{.*}} x_private 'int *'
+  // CHECK: VarDecl {{.*}} x_private '__private int *'
   __attribute__((opencl_private)) int *x_private;
 
-  // CHECK: VarDecl {{.*}} z_private 'int *'
+  // CHECK: VarDecl {{.*}} z_private '__private int *'
   [[clang::opencl_private]] int *z_private;
 
   // CHECK: VarDecl {{.*}} x_generic '__generic int *'

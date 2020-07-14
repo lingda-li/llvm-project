@@ -12,7 +12,12 @@
 #ifndef _TARGET_IMPL_H_
 #define _TARGET_IMPL_H_
 
+#include <assert.h>
 #include <cuda.h>
+#include <inttypes.h>
+#include <stdio.h>
+#include <stdlib.h>
+
 #include "nvptx_interface.h"
 
 #define DEVICE __device__
@@ -100,9 +105,24 @@ INLINE uint32_t __kmpc_impl_smid() {
   return id;
 }
 
+INLINE double __kmpc_impl_get_wtick() {
+  // Timer precision is 1ns
+  return ((double)1E-9);
+}
+
+INLINE double __kmpc_impl_get_wtime() {
+  unsigned long long nsecs;
+  asm("mov.u64  %0, %%globaltimer;" : "=l"(nsecs));
+  return (double)nsecs * __kmpc_impl_get_wtick();
+}
+
 INLINE uint32_t __kmpc_impl_ffs(uint32_t x) { return __ffs(x); }
 
 INLINE uint32_t __kmpc_impl_popc(uint32_t x) { return __popc(x); }
+
+template <typename T> INLINE T __kmpc_impl_min(T x, T y) {
+  return min(x, y);
+}
 
 #ifndef CUDA_VERSION
 #error CUDA_VERSION macro is undefined, something wrong with cuda.
@@ -166,5 +186,24 @@ INLINE void __kmpc_impl_named_sync(int barrier, uint32_t num_threads) {
 INLINE void __kmpc_impl_threadfence(void) { __threadfence(); }
 INLINE void __kmpc_impl_threadfence_block(void) { __threadfence_block(); }
 INLINE void __kmpc_impl_threadfence_system(void) { __threadfence_system(); }
+
+// Calls to the NVPTX layer (assuming 1D layout)
+INLINE int GetThreadIdInBlock() { return threadIdx.x; }
+INLINE int GetBlockIdInKernel() { return blockIdx.x; }
+INLINE int GetNumberOfBlocksInKernel() { return gridDim.x; }
+INLINE int GetNumberOfThreadsInBlock() { return blockDim.x; }
+INLINE unsigned GetWarpId() { return GetThreadIdInBlock() / WARPSIZE; }
+INLINE unsigned GetLaneId() { return GetThreadIdInBlock() & (WARPSIZE - 1); }
+
+// Locks
+EXTERN void __kmpc_impl_init_lock(omp_lock_t *lock);
+EXTERN void __kmpc_impl_destroy_lock(omp_lock_t *lock);
+EXTERN void __kmpc_impl_set_lock(omp_lock_t *lock);
+EXTERN void __kmpc_impl_unset_lock(omp_lock_t *lock);
+EXTERN int __kmpc_impl_test_lock(omp_lock_t *lock);
+
+// Memory
+INLINE void *__kmpc_impl_malloc(size_t x) { return malloc(x); }
+INLINE void __kmpc_impl_free(void *x) { free(x); }
 
 #endif

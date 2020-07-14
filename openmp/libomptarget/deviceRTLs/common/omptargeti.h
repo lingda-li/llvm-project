@@ -11,6 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "common/target_atomic.h"
+
 ////////////////////////////////////////////////////////////////////////////////
 // Task Descriptor
 ////////////////////////////////////////////////////////////////////////////////
@@ -40,7 +42,7 @@ omptarget_nvptx_TaskDescr::InitLevelZeroTaskDescr() {
 
   items.flags = 0;
   items.threadId = 0;         // is master
-  items.runtimeChunkSize = 1; // prefered chunking statik with chunk 1
+  items.runtimeChunkSize = 1; // preferred chunking statik with chunk 1
 }
 
 // This is called when all threads are started together in SPMD mode.
@@ -57,7 +59,7 @@ INLINE void omptarget_nvptx_TaskDescr::InitLevelOneTaskDescr(
       TaskDescr_InPar | TaskDescr_IsParConstr; // set flag to parallel
   items.threadId =
       GetThreadIdInBlock(); // get ids from cuda (only called for 1st level)
-  items.runtimeChunkSize = 1; // prefered chunking statik with chunk 1
+  items.runtimeChunkSize = 1; // preferred chunking statik with chunk 1
   prev = parentTaskDescr;
 }
 
@@ -88,7 +90,7 @@ INLINE void omptarget_nvptx_TaskDescr::CopyForExplicitTask(
 INLINE void omptarget_nvptx_TaskDescr::CopyToWorkDescr(
     omptarget_nvptx_TaskDescr *masterTaskDescr) {
   CopyParent(masterTaskDescr);
-  // overrwrite specific items;
+  // overwrite specific items;
   items.flags |=
       TaskDescr_InPar | TaskDescr_IsParConstr; // set flag to parallel
 }
@@ -97,7 +99,7 @@ INLINE void omptarget_nvptx_TaskDescr::CopyFromWorkDescr(
     omptarget_nvptx_TaskDescr *workTaskDescr) {
   Copy(workTaskDescr);
   //
-  // overrwrite specific items;
+  // overwrite specific items;
   //
   // The threadID should be GetThreadIdInBlock() % GetMasterThreadID().
   // This is so that the serial master (first lane in the master warp)
@@ -207,7 +209,7 @@ INLINE void omptarget_nvptx_SimpleMemoryManager::Release() {
   ASSERT0(LT_FUSSY, usedMemIdx < OMP_STATE_COUNT,
           "MemIdx is too big or uninitialized.");
   MemDataTy &MD = MemData[usedSlotIdx];
-  atomicExch((unsigned *)&MD.keys[usedMemIdx], 0);
+  __kmpc_atomic_exchange((unsigned *)&MD.keys[usedMemIdx], 0u);
 }
 
 INLINE const void *omptarget_nvptx_SimpleMemoryManager::Acquire(const void *buf,
@@ -217,7 +219,7 @@ INLINE const void *omptarget_nvptx_SimpleMemoryManager::Acquire(const void *buf,
   const unsigned sm = usedSlotIdx;
   MemDataTy &MD = MemData[sm];
   unsigned i = hash(GetBlockIdInKernel());
-  while (atomicCAS((unsigned *)&MD.keys[i], 0, 1) != 0) {
+  while (__kmpc_atomic_cas((unsigned *)&MD.keys[i], 0u, 1u) != 0) {
     i = hash(i + 1);
   }
   usedSlotIdx = sm;

@@ -221,13 +221,13 @@ let Predicates = [FeatureNoVectorEnhancements1] in {
 
 // Convert a signed integer register value to a floating-point one.
 let Uses = [FPC], mayRaiseFPException = 1 in {
-  def CEFBR : UnaryRRE<"cefbr", 0xB394, sint_to_fp, FP32,  GR32>;
-  def CDFBR : UnaryRRE<"cdfbr", 0xB395, sint_to_fp, FP64,  GR32>;
-  def CXFBR : UnaryRRE<"cxfbr", 0xB396, sint_to_fp, FP128, GR32>;
+  def CEFBR : UnaryRRE<"cefbr", 0xB394, any_sint_to_fp, FP32,  GR32>;
+  def CDFBR : UnaryRRE<"cdfbr", 0xB395, any_sint_to_fp, FP64,  GR32>;
+  def CXFBR : UnaryRRE<"cxfbr", 0xB396, any_sint_to_fp, FP128, GR32>;
 
-  def CEGBR : UnaryRRE<"cegbr", 0xB3A4, sint_to_fp, FP32,  GR64>;
-  def CDGBR : UnaryRRE<"cdgbr", 0xB3A5, sint_to_fp, FP64,  GR64>;
-  def CXGBR : UnaryRRE<"cxgbr", 0xB3A6, sint_to_fp, FP128, GR64>;
+  def CEGBR : UnaryRRE<"cegbr", 0xB3A4, any_sint_to_fp, FP32,  GR64>;
+  def CDGBR : UnaryRRE<"cdgbr", 0xB3A5, any_sint_to_fp, FP64,  GR64>;
+  def CXGBR : UnaryRRE<"cxgbr", 0xB3A6, any_sint_to_fp, FP128, GR64>;
 }
 
 // The FP extension feature provides versions of the above that allow
@@ -254,13 +254,13 @@ let Predicates = [FeatureFPExtension] in {
     def CXLGBR : TernaryRRFe<"cxlgbr", 0xB3A2, FP128, GR64>;
   }
 
-  def : Pat<(f32  (uint_to_fp GR32:$src)), (CELFBR 0, GR32:$src, 0)>;
-  def : Pat<(f64  (uint_to_fp GR32:$src)), (CDLFBR 0, GR32:$src, 0)>;
-  def : Pat<(f128 (uint_to_fp GR32:$src)), (CXLFBR 0, GR32:$src, 0)>;
+  def : Pat<(f32  (any_uint_to_fp GR32:$src)), (CELFBR 0, GR32:$src, 0)>;
+  def : Pat<(f64  (any_uint_to_fp GR32:$src)), (CDLFBR 0, GR32:$src, 0)>;
+  def : Pat<(f128 (any_uint_to_fp GR32:$src)), (CXLFBR 0, GR32:$src, 0)>;
 
-  def : Pat<(f32  (uint_to_fp GR64:$src)), (CELGBR 0, GR64:$src, 0)>;
-  def : Pat<(f64  (uint_to_fp GR64:$src)), (CDLGBR 0, GR64:$src, 0)>;
-  def : Pat<(f128 (uint_to_fp GR64:$src)), (CXLGBR 0, GR64:$src, 0)>;
+  def : Pat<(f32  (any_uint_to_fp GR64:$src)), (CELGBR 0, GR64:$src, 0)>;
+  def : Pat<(f64  (any_uint_to_fp GR64:$src)), (CDLGBR 0, GR64:$src, 0)>;
+  def : Pat<(f128 (any_uint_to_fp GR64:$src)), (CXLGBR 0, GR64:$src, 0)>;
 }
 
 // Convert a floating-point register value to a signed integer value,
@@ -438,8 +438,8 @@ let Uses = [FPC], mayRaiseFPException = 1,
     def ADBR : BinaryRRE<"adbr", 0xB31A, any_fadd, FP64,  FP64>;
     def AXBR : BinaryRRE<"axbr", 0xB34A, any_fadd, FP128, FP128>;
   }
-  def AEB : BinaryRXE<"aeb", 0xED0A, any_fadd, FP32, load, 4>;
-  def ADB : BinaryRXE<"adb", 0xED1A, any_fadd, FP64, load, 8>;
+  defm AEB : BinaryRXEAndPseudo<"aeb", 0xED0A, any_fadd, FP32, load, 4>;
+  defm ADB : BinaryRXEAndPseudo<"adb", 0xED1A, any_fadd, FP64, load, 8>;
 }
 
 // Subtraction.
@@ -449,8 +449,8 @@ let Uses = [FPC], mayRaiseFPException = 1,
   def SDBR : BinaryRRE<"sdbr", 0xB31B, any_fsub, FP64,  FP64>;
   def SXBR : BinaryRRE<"sxbr", 0xB34B, any_fsub, FP128, FP128>;
 
-  def SEB : BinaryRXE<"seb",  0xED0B, any_fsub, FP32, load, 4>;
-  def SDB : BinaryRXE<"sdb",  0xED1B, any_fsub, FP64, load, 8>;
+  defm SEB : BinaryRXEAndPseudo<"seb",  0xED0B, any_fsub, FP32, load, 4>;
+  defm SDB : BinaryRXEAndPseudo<"sdb",  0xED1B, any_fsub, FP64, load, 8>;
 }
 
 // Multiplication.
@@ -460,8 +460,8 @@ let Uses = [FPC], mayRaiseFPException = 1 in {
     def MDBR  : BinaryRRE<"mdbr",  0xB31C, any_fmul, FP64,  FP64>;
     def MXBR  : BinaryRRE<"mxbr",  0xB34C, any_fmul, FP128, FP128>;
   }
-  def MEEB : BinaryRXE<"meeb", 0xED17, any_fmul, FP32, load, 4>;
-  def MDB  : BinaryRXE<"mdb",  0xED1C, any_fmul, FP64, load, 8>;
+  defm MEEB : BinaryRXEAndPseudo<"meeb", 0xED17, any_fmul, FP32, load, 4>;
+  defm MDB  : BinaryRXEAndPseudo<"mdb",  0xED1C, any_fmul, FP64, load, 8>;
 }
 
 // f64 multiplication of two FP32 registers.
@@ -503,8 +503,8 @@ let Uses = [FPC], mayRaiseFPException = 1 in {
   def MAEBR : TernaryRRD<"maebr", 0xB30E, z_any_fma, FP32, FP32>;
   def MADBR : TernaryRRD<"madbr", 0xB31E, z_any_fma, FP64, FP64>;
 
-  def MAEB : TernaryRXF<"maeb", 0xED0E, z_any_fma, FP32, FP32, load, 4>;
-  def MADB : TernaryRXF<"madb", 0xED1E, z_any_fma, FP64, FP64, load, 8>;
+  defm MAEB : TernaryRXFAndPseudo<"maeb", 0xED0E, z_any_fma, FP32, FP32, load, 4>;
+  defm MADB : TernaryRXFAndPseudo<"madb", 0xED1E, z_any_fma, FP64, FP64, load, 8>;
 }
 
 // Fused multiply-subtract.
@@ -512,8 +512,8 @@ let Uses = [FPC], mayRaiseFPException = 1 in {
   def MSEBR : TernaryRRD<"msebr", 0xB30F, z_any_fms, FP32, FP32>;
   def MSDBR : TernaryRRD<"msdbr", 0xB31F, z_any_fms, FP64, FP64>;
 
-  def MSEB : TernaryRXF<"mseb", 0xED0F, z_any_fms, FP32, FP32, load, 4>;
-  def MSDB : TernaryRXF<"msdb", 0xED1F, z_any_fms, FP64, FP64, load, 8>;
+  defm MSEB : TernaryRXFAndPseudo<"mseb", 0xED0F, z_any_fms, FP32, FP32, load, 4>;
+  defm MSDB : TernaryRXFAndPseudo<"msdb", 0xED1F, z_any_fms, FP64, FP64, load, 8>;
 }
 
 // Division.
@@ -522,8 +522,8 @@ let Uses = [FPC], mayRaiseFPException = 1 in {
   def DDBR : BinaryRRE<"ddbr", 0xB31D, any_fdiv, FP64,  FP64>;
   def DXBR : BinaryRRE<"dxbr", 0xB34D, any_fdiv, FP128, FP128>;
 
-  def DEB : BinaryRXE<"deb", 0xED0D, any_fdiv, FP32, load, 4>;
-  def DDB : BinaryRXE<"ddb", 0xED1D, any_fdiv, FP64, load, 8>;
+  defm DEB : BinaryRXEAndPseudo<"deb", 0xED0D, any_fdiv, FP32, load, 4>;
+  defm DDB : BinaryRXEAndPseudo<"ddb", 0xED1D, any_fdiv, FP64, load, 8>;
 }
 
 // Divide to integer.

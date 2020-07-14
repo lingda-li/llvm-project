@@ -1,4 +1,4 @@
-//===-- NativeProcessNetBSD.cpp ------------------------------- -*- C++ -*-===//
+//===-- NativeProcessNetBSD.cpp -------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -95,7 +95,7 @@ NativeProcessNetBSD::Factory::Launch(ProcessLaunchInfo &launch_info,
            Info.GetArchitecture().GetArchitectureName());
 
   std::unique_ptr<NativeProcessNetBSD> process_up(new NativeProcessNetBSD(
-      pid, launch_info.GetPTY().ReleaseMasterFileDescriptor(), native_delegate,
+      pid, launch_info.GetPTY().ReleasePrimaryFileDescriptor(), native_delegate,
       Info.GetArchitecture(), mainloop));
 
   // Enable event reporting
@@ -914,15 +914,23 @@ Status NativeProcessNetBSD::ReinitializeThreads() {
   m_threads.clear();
 
   // Initialize new thread
+#ifdef PT_LWPSTATUS
+  struct ptrace_lwpstatus info = {};
+  int op = PT_LWPNEXT;
+#else
   struct ptrace_lwpinfo info = {};
-  Status error = PtraceWrapper(PT_LWPINFO, GetID(), &info, sizeof(info));
+  int op = PT_LWPINFO;
+#endif
+
+  Status error = PtraceWrapper(op, GetID(), &info, sizeof(info));
+
   if (error.Fail()) {
     return error;
   }
   // Reinitialize from scratch threads and register them in process
   while (info.pl_lwpid != 0) {
     AddThread(info.pl_lwpid);
-    error = PtraceWrapper(PT_LWPINFO, GetID(), &info, sizeof(info));
+    error = PtraceWrapper(op, GetID(), &info, sizeof(info));
     if (error.Fail()) {
       return error;
     }

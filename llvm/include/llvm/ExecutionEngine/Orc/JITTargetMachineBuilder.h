@@ -25,6 +25,9 @@
 #include <vector>
 
 namespace llvm {
+
+class raw_ostream;
+
 namespace orc {
 
 /// A utility class for building TargetMachines for JITs.
@@ -79,11 +82,17 @@ public:
     return *this;
   }
 
+  /// Get the relocation model.
+  const Optional<Reloc::Model> &getRelocationModel() const { return RM; }
+
   /// Set the code model.
   JITTargetMachineBuilder &setCodeModel(Optional<CodeModel::Model> CM) {
     this->CM = std::move(CM);
     return *this;
   }
+
+  /// Get the code model.
+  const Optional<CodeModel::Model> &getCodeModel() const { return CM; }
 
   /// Set the LLVM CodeGen optimization level.
   JITTargetMachineBuilder &setCodeGenOptLevel(CodeGenOpt::Level OptLevel) {
@@ -130,6 +139,12 @@ public:
   /// Access Triple.
   const Triple &getTargetTriple() const { return TT; }
 
+#ifndef NDEBUG
+  /// Debug-dump a JITTargetMachineBuilder.
+  friend raw_ostream &operator<<(raw_ostream &OS,
+                                 const JITTargetMachineBuilder &JTMB);
+#endif
+
 private:
   Triple TT;
   std::string CPU;
@@ -137,7 +152,7 @@ private:
   TargetOptions Options;
   Optional<Reloc::Model> RM;
   Optional<CodeModel::Model> CM;
-  CodeGenOpt::Level OptLevel = CodeGenOpt::None;
+  CodeGenOpt::Level OptLevel = CodeGenOpt::Default;
 };
 
 } // end namespace orc

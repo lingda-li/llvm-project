@@ -47,11 +47,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "AST.h"
-#include "Logger.h"
 #include "ParsedAST.h"
 #include "Selection.h"
 #include "SourceCode.h"
 #include "refactor/Tweak.h"
+#include "support/Logger.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclTemplate.h"
@@ -119,7 +119,7 @@ const Node *getParentOfRootStmts(const Node *CommonAnc) {
   const Node *Parent = nullptr;
   switch (CommonAnc->Selected) {
   case SelectionTree::Selection::Unselected:
-    // Typicaly a block, with the { and } unselected, could also be ForStmt etc
+    // Typically a block, with the { and } unselected, could also be ForStmt etc
     // Ensure all Children are RootStmts.
     Parent = CommonAnc;
     break;
@@ -347,16 +347,16 @@ std::string NewFunction::renderParametersForCall() const {
 }
 
 std::string NewFunction::renderCall() const {
-  return llvm::formatv(
-      "{0}{1}({2}){3}", CallerReturnsValue ? "return " : "", Name,
-      renderParametersForCall(),
-      (SemicolonPolicy.isNeededInOriginalFunction() ? ";" : ""));
+  return std::string(
+      llvm::formatv("{0}{1}({2}){3}", CallerReturnsValue ? "return " : "", Name,
+                    renderParametersForCall(),
+                    (SemicolonPolicy.isNeededInOriginalFunction() ? ";" : "")));
 }
 
 std::string NewFunction::renderDefinition(const SourceManager &SM) const {
-  return llvm::formatv("{0} {1}({2}) {\n{3}\n}\n",
-                       printType(ReturnType, *EnclosingFuncContext), Name,
-                       renderParametersForDefinition(), getFuncBody(SM));
+  return std::string(llvm::formatv(
+      "{0} {1}({2}) {\n{3}\n}\n", printType(ReturnType, *EnclosingFuncContext),
+      Name, renderParametersForDefinition(), getFuncBody(SM)));
 }
 
 std::string NewFunction::getFuncBody(const SourceManager &SM) const {
@@ -497,7 +497,7 @@ CapturedZoneInfo captureZoneInfo(const ExtractionZone &ExtZone) {
     }
 
     bool VisitDeclRefExpr(DeclRefExpr *DRE) {
-      // Find the corresponding Decl and mark it's occurence.
+      // Find the corresponding Decl and mark it's occurrence.
       const Decl *D = DRE->getDecl();
       auto *DeclInfo = Info.getDeclInfoFor(D);
       // If no Decl was found, the Decl must be outside the enclosingFunc.
@@ -578,8 +578,9 @@ bool createParameters(NewFunction &ExtractedFunc,
     // pointers, etc by reference.
     bool IsPassedByReference = true;
     // We use the index of declaration as the ordering priority for parameters.
-    ExtractedFunc.Parameters.push_back(
-        {VD->getName(), TypeInfo, IsPassedByReference, DeclInfo.DeclIndex});
+    ExtractedFunc.Parameters.push_back({std::string(VD->getName()), TypeInfo,
+                                        IsPassedByReference,
+                                        DeclInfo.DeclIndex});
   }
   llvm::sort(ExtractedFunc.Parameters);
   return true;
@@ -681,8 +682,8 @@ tooling::Replacement createFunctionDefinition(const NewFunction &ExtractedFunc,
 
 bool ExtractFunction::prepare(const Selection &Inputs) {
   const Node *CommonAnc = Inputs.ASTSelection.commonAncestor();
-  const SourceManager &SM = Inputs.AST.getSourceManager();
-  const LangOptions &LangOpts = Inputs.AST.getLangOpts();
+  const SourceManager &SM = Inputs.AST->getSourceManager();
+  const LangOptions &LangOpts = Inputs.AST->getLangOpts();
   if (auto MaybeExtZone = findExtractionZone(CommonAnc, SM, LangOpts)) {
     ExtZone = std::move(*MaybeExtZone);
     return true;
@@ -691,8 +692,8 @@ bool ExtractFunction::prepare(const Selection &Inputs) {
 }
 
 Expected<Tweak::Effect> ExtractFunction::apply(const Selection &Inputs) {
-  const SourceManager &SM = Inputs.AST.getSourceManager();
-  const LangOptions &LangOpts = Inputs.AST.getLangOpts();
+  const SourceManager &SM = Inputs.AST->getSourceManager();
+  const LangOptions &LangOpts = Inputs.AST->getLangOpts();
   auto ExtractedFunc = getExtractedFunction(ExtZone, SM, LangOpts);
   // FIXME: Add more types of errors.
   if (!ExtractedFunc)

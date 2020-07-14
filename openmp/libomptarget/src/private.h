@@ -20,11 +20,20 @@
 
 extern int target_data_begin(DeviceTy &Device, int32_t arg_num,
                              void **args_base, void **args, int64_t *arg_sizes,
+<<<<<<< HEAD
                              int64_t *arg_types, void **arg_mappers);
 
 extern int target_data_end(DeviceTy &Device, int32_t arg_num, void **args_base,
                            void **args, int64_t *arg_sizes, int64_t *arg_types,
                            void **arg_mappers);
+=======
+                             int64_t *arg_types,
+                             __tgt_async_info *async_info_ptr);
+
+extern int target_data_end(DeviceTy &Device, int32_t arg_num, void **args_base,
+                           void **args, int64_t *arg_sizes, int64_t *arg_types,
+                           __tgt_async_info *async_info_ptr);
+>>>>>>> master
 
 extern int target_data_update(DeviceTy &Device, int32_t arg_num,
                               void **args_base, void **args, int64_t *arg_sizes,
@@ -76,7 +85,7 @@ struct MapperComponentsTy {
 typedef void (*MapperFuncPtrTy)(void *, void *, void *, int64_t, int64_t);
 
 ////////////////////////////////////////////////////////////////////////////////
-// implemtation for fatal messages
+// implementation for fatal messages
 ////////////////////////////////////////////////////////////////////////////////
 
 #define FATAL_MESSAGE0(_num, _str)                                    \

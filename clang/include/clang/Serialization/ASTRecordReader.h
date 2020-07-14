@@ -14,6 +14,7 @@
 #ifndef LLVM_CLANG_SERIALIZATION_ASTRECORDREADER_H
 #define LLVM_CLANG_SERIALIZATION_ASTRECORDREADER_H
 
+#include "clang/AST/ASTContext.h"
 #include "clang/AST/AbstractBasicReader.h"
 #include "clang/Lex/Token.h"
 #include "clang/Serialization/ASTReader.h"
@@ -22,6 +23,7 @@
 #include "llvm/ADT/APSInt.h"
 
 namespace clang {
+class OMPTraitInfo;
 
 /// An object for streaming information from a record.
 class ASTRecordReader
@@ -117,7 +119,7 @@ public:
   //readExceptionSpecInfo(SmallVectorImpl<QualType> &ExceptionStorage);
 
   /// Get the global offset corresponding to a local offset.
-  uint64_t getGlobalBitOffset(uint32_t LocalOffset) {
+  uint64_t getGlobalBitOffset(uint64_t LocalOffset) {
     return Reader->getGlobalBitOffset(*F, LocalOffset);
   }
 
@@ -228,7 +230,15 @@ public:
   // TemplateName readTemplateName(); (inherited)
 
   /// Read a template argument, advancing Idx. (inherited)
-  // TemplateArgument readTemplateArgument(bool Canonicalize = false);
+  // TemplateArgument readTemplateArgument();
+  using DataStreamBasicReader::readTemplateArgument;
+  TemplateArgument readTemplateArgument(bool Canonicalize) {
+    TemplateArgument Arg = readTemplateArgument();
+    if (Canonicalize) {
+      Arg = getContext().getCanonicalTemplateArgument(Arg);
+    }
+    return Arg;
+  }
 
   /// Read a template parameter list, advancing Idx.
   TemplateParameterList *readTemplateParameterList();
@@ -249,6 +259,9 @@ public:
   CXXTemporary *readCXXTemporary() {
     return Reader->ReadCXXTemporary(*F, Record, Idx);
   }
+
+  /// Read an OMPTraitInfo object, advancing Idx.
+  OMPTraitInfo *readOMPTraitInfo();
 
   /// Read an OpenMP clause, advancing Idx.
   OMPClause *readOMPClause();

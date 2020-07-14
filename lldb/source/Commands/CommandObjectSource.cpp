@@ -1,4 +1,4 @@
-//===-- CommandObjectSource.cpp ---------------------------------*- C++ -*-===//
+//===-- CommandObjectSource.cpp -------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -14,18 +14,14 @@
 #include "lldb/Core/ModuleSpec.h"
 #include "lldb/Core/SourceManager.h"
 #include "lldb/Host/OptionParser.h"
-#include "lldb/Interpreter/CommandCompletions.h"
-#include "lldb/Interpreter/CommandInterpreter.h"
 #include "lldb/Interpreter/CommandReturnObject.h"
 #include "lldb/Interpreter/OptionArgParser.h"
 #include "lldb/Interpreter/Options.h"
 #include "lldb/Symbol/CompileUnit.h"
 #include "lldb/Symbol/Function.h"
 #include "lldb/Symbol/Symbol.h"
-#include "lldb/Target/Process.h"
 #include "lldb/Target/SectionLoadList.h"
 #include "lldb/Target/StackFrame.h"
-#include "lldb/Target/TargetList.h"
 #include "lldb/Utility/FileSpec.h"
 
 using namespace lldb;
@@ -67,11 +63,11 @@ class CommandObjectSourceInfo : public CommandObjectParsed {
         break;
 
       case 'f':
-        file_name = option_arg;
+        file_name = std::string(option_arg);
         break;
 
       case 'n':
-        symbol_name = option_arg;
+        symbol_name = std::string(option_arg);
         break;
 
       case 'a': {
@@ -650,11 +646,11 @@ class CommandObjectSourceList : public CommandObjectParsed {
         break;
 
       case 'f':
-        file_name = option_arg;
+        file_name = std::string(option_arg);
         break;
 
       case 'n':
-        symbol_name = option_arg;
+        symbol_name = std::string(option_arg);
         break;
 
       case 'a': {

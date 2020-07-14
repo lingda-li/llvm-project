@@ -16,7 +16,7 @@ define void @_ZN1m1nEv(%struct.m.2.5.8.11* %this) local_unnamed_addr nounwind al
 ; CHECK-NEXT:    lwz r5, 36(r30)
 ; CHECK-NEXT:    rldicl r4, r4, 60, 4
 ; CHECK-NEXT:    rlwinm r3, r4, 31, 0, 0
-; CHECK-NEXT:    rlwinm r4, r5, 0, 31, 31
+; CHECK-NEXT:    clrlwi r4, r5, 31
 ; CHECK-NEXT:    or r4, r4, r3
 ; CHECK-NEXT:    bl _ZN1llsE1d
 ; CHECK-NEXT:    nop
@@ -31,8 +31,8 @@ define void @_ZN1m1nEv(%struct.m.2.5.8.11* %this) local_unnamed_addr nounwind al
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    addi r1, r1, 48
 ; CHECK-NEXT:    ld r0, 16(r1)
-; CHECK-NEXT:    mtlr r0
 ; CHECK-NEXT:    ld r30, -16(r1) # 8-byte Folded Reload
+; CHECK-NEXT:    mtlr r0
 ; CHECK-NEXT:    blr
 entry:
   %bc = getelementptr inbounds %struct.m.2.5.8.11, %struct.m.2.5.8.11* %this, i64 0, i32 2

@@ -6,6 +6,14 @@
 # RUN: cat %t.out
 # RUN: FileCheck --input-file %t.out %s
 #
+# Test again in non-UTF shell to catch potential errors with python 2 seen
+# on stdout-encoding.txt
+# RUN: env PYTHONIOENCODING=ascii not %{lit} -j 1 -a %{inputs}/shtest-shell > %t.ascii.out
+# FIXME: Temporarily dump test output so we can debug failing tests on
+# buildbots.
+# RUN: cat %t.ascii.out
+# RUN: FileCheck --input-file %t.ascii.out %s
+#
 # END.
 
 # CHECK: -- Testing:
@@ -34,6 +42,22 @@
 # CHECK: error: command failed with exit status: 127
 # CHECK: ***
 
+# CHECK: PASS: shtest-shell :: dev-null.txt
+
+# CHECK: FAIL: shtest-shell :: diff-b.txt
+# CHECK: *** TEST 'shtest-shell :: diff-b.txt' FAILED ***
+# CHECK: $ "diff" "-b" "{{[^"]*}}.0" "{{[^"]*}}.1"
+# CHECK: # command output:
+# CHECK: 1,2
+# CHECK-NEXT: {{^  }}f o o
+# CHECK-NEXT: ! b a r
+# CHECK-NEXT: ---
+# CHECK-NEXT: {{^  }}f o o
+# CHECK-NEXT: ! bar
+# CHECK-EMPTY:
+# CHECK: error: command failed with exit status: 1
+# CHECK: ***
+
 
 # CHECK: FAIL: shtest-shell :: diff-encodings.txt
 # CHECK: *** TEST 'shtest-shell :: diff-encodings.txt' FAILED ***
@@ -48,7 +72,7 @@
 # CHECK-NEXT: @@
 # CHECK-NEXT: {{^ .f.o.o.$}}
 # CHECK-NEXT: {{^-.b.a.r.$}}
-# CHECK-NEXT: {{^\+.b.a.r..}}
+# CHECK-NEXT: {{^\+.b.a.r.}}
 # CHECK-NEXT: {{^ .b.a.z.$}}
 # CHECK: error: command failed with exit status: 1
 # CHECK: $ "true"
@@ -62,7 +86,7 @@
 # CHECK-NEXT: -bar
 # CHECK-NEXT: -baz
 # CHECK-NEXT: {{^\+.f.o.o.$}}
-# CHECK-NEXT: {{^\+.b.a.r..}}
+# CHECK-NEXT: {{^\+.b.a.r.}}
 # CHECK-NEXT: {{^\+.b.a.z.$}}
 # CHECK: error: command failed with exit status: 1
 # CHECK: $ "true"
@@ -73,7 +97,7 @@
 # CHECK-NEXT: +++
 # CHECK-NEXT: @@
 # CHECK-NEXT: {{^\-.f.o.o.$}}
-# CHECK-NEXT: {{^\-.b.a.r..}}
+# CHECK-NEXT: {{^\-.b.a.r.}}
 # CHECK-NEXT: {{^\-.b.a.z.$}}
 # CHECK-NEXT: +foo
 # CHECK-NEXT: +bar
@@ -100,7 +124,7 @@
 # CHECK-NEXT: @@
 # CHECK-NEXT: {{^ .f.o.o.$}}
 # CHECK-NEXT: {{^-.b.a.r.$}}
-# CHECK-NEXT: {{^\+.b.a.r..}}
+# CHECK-NEXT: {{^\+.b.a.r.}}
 # CHECK-NEXT: {{^ .b.a.z.$}}
 # CHECK: error: command failed with exit status: 1
 # CHECK: $ "true"
@@ -116,7 +140,7 @@
 # CHECK-NEXT: -bar
 # CHECK-NEXT: -baz
 # CHECK-NEXT: {{^\+.f.o.o.$}}
-# CHECK-NEXT: {{^\+.b.a.r..}}
+# CHECK-NEXT: {{^\+.b.a.r.}}
 # CHECK-NEXT: {{^\+.b.a.z.$}}
 # CHECK: error: command failed with exit status: 1
 # CHECK: $ "true"
@@ -127,7 +151,7 @@
 # CHECK-NEXT: +++
 # CHECK-NEXT: @@
 # CHECK-NEXT: {{^\-.f.o.o.$}}
-# CHECK-NEXT: {{^\-.b.a.r..}}
+# CHECK-NEXT: {{^\-.b.a.r.}}
 # CHECK-NEXT: {{^\-.b.a.z.$}}
 # CHECK-NEXT: +foo
 # CHECK-NEXT: +bar
@@ -460,6 +484,22 @@
 # CHECK: ***
 
 
+# CHECK: FAIL: shtest-shell :: diff-w.txt
+# CHECK: *** TEST 'shtest-shell :: diff-w.txt' FAILED ***
+# CHECK: $ "diff" "-w" "{{[^"]*}}.0" "{{[^"]*}}.1"
+# CHECK: # command output:
+# CHECK: 1,3
+# CHECK-NEXT: {{^  }}foo
+# CHECK-NEXT: {{^  }}bar
+# CHECK-NEXT: ! baz
+# CHECK-NEXT: ---
+# CHECK-NEXT: {{^  }}foo
+# CHECK-NEXT: {{^  }}bar
+# CHECK-NEXT: ! bat
+# CHECK-EMPTY:
+# CHECK: error: command failed with exit status: 1
+# CHECK: ***
+
 # CHECK: FAIL: shtest-shell :: error-0.txt
 # CHECK: *** TEST 'shtest-shell :: error-0.txt' FAILED ***
 # CHECK: $ "not-a-real-command"
@@ -544,11 +584,11 @@
 # CHECK: $ "cat" "diff-in.bin"
 # CHECK: # command output:
 # CHECK-NEXT: {{^.f.o.o.$}}
-# CHECK-NEXT: {{^.b.a.r..}}
+# CHECK-NEXT: {{^.b.a.r.}}
 # CHECK-NEXT: {{^.b.a.z.$}}
 # CHECK-NOT: error
 # CHECK: $ "false"
 # CHECK: ***
 
 # CHECK: PASS: shtest-shell :: valid-shell.txt
-# CHECK: Failing Tests (33)
+# CHECK: Failed Tests (35)

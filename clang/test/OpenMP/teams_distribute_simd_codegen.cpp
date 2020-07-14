@@ -67,7 +67,7 @@ int teams_argument_global(int n) {
   // CK1-64: [[TH_VAL:%.+]] = load i32, i32* [[TH_CONV]],
   // CK1-32: [[TE_VAL:%.+]] = load i32, i32* [[TE_ADDR]],
   // CK1-32: [[TH_VAL:%.+]] = load i32, i32* [[TH_ADDR]],
-  // CK1: {{%.+}} = call i32 @__kmpc_push_num_teams({{.+}}, {{.+}}, i32 [[TE_VAL]], i32 [[TH_VAL]])
+  // CK1: call void @__kmpc_push_num_teams({{.+}}, {{.+}}, i32 [[TE_VAL]], i32 [[TH_VAL]])
   // CK1: call void {{.+}} @__kmpc_fork_teams({{.+}}, i32 3, {{.+}} @[[OUTL1:.+]] to {{.+}}, {{.+}}, {{.+}})
   // CK1: ret void
 
@@ -177,16 +177,16 @@ struct SS{
   // CK3: define {{.*}}i32 @{{.+}}foo{{.+}}(
   int foo(void) {
 
-  // CK3: call i32 @__tgt_target_teams_mapper(i64 -1, i8* @{{[^,]+}}, i32 2, i8** %{{[^,]+}}, i8** %{{[^,]+}}, i{{64|32}}* %{{.+}}, i64* {{.+}}@{{[^,]+}}, i32 0, i32 0), i8** null, i32 0, i32 1)
+  // CK3: call i32 @__tgt_target_teams_mapper(i64 -1, i8* @{{[^,]+}}, i32 3, i8** %{{[^,]+}}, i8** %{{[^,]+}}, i{{64|32}}* %{{.+}}, i64* {{.+}}@{{[^,]+}}, i32 0, i32 0), i8** null, i32 0, i32 1)
   // CK3: call void @[[OFFL1:.+]]([[SSI]]* %{{.+}})
     #pragma omp target
 #ifdef OMP5
-    #pragma omp teams distribute simd if(b)
+    #pragma omp teams distribute simd if(b) nontemporal(a, b)
 #else
     #pragma omp teams distribute simd
 #endif // OMP5
     for(int i = 0; i < X; i++) {
-      a[i] = (T)0;
+      a[i] = (T)b;
     }
 
       // outlined target region
@@ -197,6 +197,8 @@ struct SS{
 
   // CK3: define internal void @[[OUTL1]]({{.+}})
   // CK3: call void @__kmpc_for_static_init_4(
+  // OMP3_45-NOT: !nontemporal
+  // OMP3_50: load float,{{.*}}!nontemporal
   // CK3: call void @__kmpc_for_static_fini(
   // CK3: ret void
 
@@ -306,7 +308,7 @@ int main (int argc, char **argv) {
 // CK4-64: [[TH_VAL:%.+]] = load i32, i32* [[TH_CONV]],
 // CK4-32: [[TE_VAL:%.+]] = load i32, i32* [[TE_ADDR]],
 // CK4-32: [[TH_VAL:%.+]] = load i32, i32* [[TH_ADDR]],
-// CK4: {{%.+}} = call i32 @__kmpc_push_num_teams({{.+}}, {{.+}}, i32 [[TE_VAL]], i32 [[TH_VAL]])
+// CK4: call void @__kmpc_push_num_teams({{.+}}, {{.+}}, i32 [[TE_VAL]], i32 [[TH_VAL]])
 // CK4: call void {{.+}} @__kmpc_fork_teams({{.+}}, i32 1, {{.+}} @[[OUTLT:.+]] to {{.+}}, {{.+}}, {{.+}})
 // CK4: ret void
 

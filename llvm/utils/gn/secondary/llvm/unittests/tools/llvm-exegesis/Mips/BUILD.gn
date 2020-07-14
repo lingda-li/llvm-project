@@ -21,6 +21,8 @@ unittest("LLVMExegesisMipsTests") {
   ]
   sources = [
     "BenchmarkResultTest.cpp",
+    "RegisterAliasingTest.cpp",
+    "SnippetGeneratorTest.cpp",
     "TargetTest.cpp",
   ]
 }

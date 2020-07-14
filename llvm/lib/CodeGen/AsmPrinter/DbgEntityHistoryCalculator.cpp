@@ -47,7 +47,8 @@ static Register isDescribedByReg(const MachineInstr &MI) {
     return 0;
   // If location of variable is described using a register (directly or
   // indirectly), this register is always a first operand.
-  return MI.getOperand(0).isReg() ? MI.getOperand(0).getReg() : Register();
+  return MI.getDebugOperand(0).isReg() ? MI.getDebugOperand(0).getReg()
+                                       : Register();
 }
 
 bool DbgValueHistoryMap::startDbgValue(InlinedEntity Var,
@@ -262,7 +263,9 @@ void llvm::calculateDbgEntityHistory(const MachineFunction *MF,
         DbgLabels.addInstr(L, MI);
       }
 
-      if (MI.isDebugInstr())
+      // Meta Instructions have no output and do not change any values and so
+      // can be safely ignored.
+      if (MI.isMetaInstruction())
         continue;
 
       // Not a DBG_VALUE instruction. It may clobber registers which describe

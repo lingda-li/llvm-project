@@ -615,21 +615,27 @@ SDValue R600TargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const 
       return LowerImplicitParameter(DAG, VT, DL, 8);
 
     case Intrinsic::r600_read_tgid_x:
+    case Intrinsic::amdgcn_workgroup_id_x:
       return CreateLiveInRegisterRaw(DAG, &R600::R600_TReg32RegClass,
                                      R600::T1_X, VT);
     case Intrinsic::r600_read_tgid_y:
+    case Intrinsic::amdgcn_workgroup_id_y:
       return CreateLiveInRegisterRaw(DAG, &R600::R600_TReg32RegClass,
                                      R600::T1_Y, VT);
     case Intrinsic::r600_read_tgid_z:
+    case Intrinsic::amdgcn_workgroup_id_z:
       return CreateLiveInRegisterRaw(DAG, &R600::R600_TReg32RegClass,
                                      R600::T1_Z, VT);
     case Intrinsic::r600_read_tidig_x:
+    case Intrinsic::amdgcn_workitem_id_x:
       return CreateLiveInRegisterRaw(DAG, &R600::R600_TReg32RegClass,
                                      R600::T0_X, VT);
     case Intrinsic::r600_read_tidig_y:
+    case Intrinsic::amdgcn_workitem_id_y:
       return CreateLiveInRegisterRaw(DAG, &R600::R600_TReg32RegClass,
                                      R600::T0_Y, VT);
     case Intrinsic::r600_read_tidig_z:
+    case Intrinsic::amdgcn_workitem_id_z:
       return CreateLiveInRegisterRaw(DAG, &R600::R600_TReg32RegClass,
                                      R600::T0_Z, VT);
 
@@ -699,9 +705,8 @@ SDValue R600TargetLowering::vectorToVerticalVector(SelectionDAG &DAG,
   SmallVector<SDValue, 8> Args;
 
   for (unsigned i = 0, e = VecVT.getVectorNumElements(); i != e; ++i) {
-    Args.push_back(DAG.getNode(
-        ISD::EXTRACT_VECTOR_ELT, DL, EltVT, Vector,
-        DAG.getConstant(i, DL, getVectorIdxTy(DAG.getDataLayout()))));
+    Args.push_back(DAG.getNode(ISD::EXTRACT_VECTOR_ELT, DL, EltVT, Vector,
+                               DAG.getVectorIdxConstant(i, DL)));
   }
 
   return DAG.getNode(AMDGPUISD::BUILD_VERTICAL_VECTOR, DL, VecVT, Args);
@@ -1175,8 +1180,7 @@ SDValue R600TargetLowering::lowerPrivateTruncStore(StoreSDNode *Store,
 
   // Load dword
   // TODO: can we be smarter about machine pointer info?
-  MachinePointerInfo PtrInfo(UndefValue::get(
-      Type::getInt32PtrTy(*DAG.getContext(), AMDGPUAS::PRIVATE_ADDRESS)));
+  MachinePointerInfo PtrInfo(AMDGPUAS::PRIVATE_ADDRESS);
   SDValue Dst = DAG.getLoad(MVT::i32, DL, Chain, Ptr, PtrInfo);
 
   Chain = Dst.getValue(1);
@@ -1261,10 +1265,11 @@ SDValue R600TargetLowering::LowerSTORE(SDValue Op, SelectionDAG &DAG) const {
     return scalarizeVectorStore(StoreNode, DAG);
   }
 
-  unsigned Align = StoreNode->getAlignment();
-  if (Align < MemVT.getStoreSize() &&
-      !allowsMisalignedMemoryAccesses(
-          MemVT, AS, Align, StoreNode->getMemOperand()->getFlags(), nullptr)) {
+  Align Alignment = StoreNode->getAlign();
+  if (Alignment < MemVT.getStoreSize() &&
+      !allowsMisalignedMemoryAccesses(MemVT, AS, Alignment.value(),
+                                      StoreNode->getMemOperand()->getFlags(),
+                                      nullptr)) {
     return expandUnalignedStore(StoreNode, DAG);
   }
 
@@ -1406,8 +1411,7 @@ SDValue R600TargetLowering::lowerPrivateExtLoad(SDValue Op,
 
   // Load dword
   // TODO: can we be smarter about machine pointer info?
-  MachinePointerInfo PtrInfo(UndefValue::get(
-      Type::getInt32PtrTy(*DAG.getContext(), AMDGPUAS::PRIVATE_ADDRESS)));
+  MachinePointerInfo PtrInfo(AMDGPUAS::PRIVATE_ADDRESS);
   SDValue Read = DAG.getLoad(MVT::i32, DL, Chain, Ptr, PtrInfo);
 
   // Get offset within the register.
@@ -1458,7 +1462,9 @@ SDValue R600TargetLowering::LowerLOAD(SDValue Op, SelectionDAG &DAG) const {
   if ((LoadNode->getAddressSpace() == AMDGPUAS::LOCAL_ADDRESS ||
       LoadNode->getAddressSpace() == AMDGPUAS::PRIVATE_ADDRESS) &&
       VT.isVector()) {
-      return scalarizeVectorLoad(LoadNode, DAG);
+    SDValue Ops[2];
+    std::tie(Ops[0], Ops[1]) = scalarizeVectorLoad(LoadNode, DAG);
+    return DAG.getMergeValues(Ops, DL);
   }
 
   // This is still used for explicit load from addrspace(8)
@@ -1543,7 +1549,7 @@ SDValue R600TargetLowering::lowerFrameIndex(SDValue Op,
   FrameIndexSDNode *FIN = cast<FrameIndexSDNode>(Op);
 
   unsigned FrameIndex = FIN->getIndex();
-  unsigned IgnoredFrameReg;
+  Register IgnoredFrameReg;
   unsigned Offset =
     TFL->getFrameIndexReference(MF, FrameIndex, IgnoredFrameReg);
   return DAG.getConstant(Offset * 4 * TFL->getStackWidth(MF), SDLoc(Op),
@@ -1608,9 +1614,6 @@ SDValue R600TargetLowering::LowerFormalArguments(
       continue;
     }
 
-    PointerType *PtrTy = PointerType::get(VT.getTypeForEVT(*DAG.getContext()),
-                                          AMDGPUAS::PARAM_I_ADDRESS);
-
     // i64 isn't a legal type, so the register type used ends up as i32, which
     // isn't expected here. It attempts to create this sextload, but it ends up
     // being invalid. Somehow this seems to work with i64 arguments, but breaks
@@ -1631,11 +1634,10 @@ SDValue R600TargetLowering::LowerFormalArguments(
     // XXX - I think PartOffset should give you this, but it seems to give the
     // size of the register which isn't useful.
 
-    unsigned ValBase = ArgLocs[In.getOrigArgIndex()].getLocMemOffset();
     unsigned PartOffset = VA.getLocMemOffset();
     unsigned Alignment = MinAlign(VT.getStoreSize(), PartOffset);
 
-    MachinePointerInfo PtrInfo(UndefValue::get(PtrTy), PartOffset - ValBase);
+    MachinePointerInfo PtrInfo(AMDGPUAS::PARAM_I_ADDRESS);
     SDValue Arg = DAG.getLoad(
         ISD::UNINDEXED, Ext, VT, DL, Chain,
         DAG.getConstant(PartOffset, DL, MVT::i32), DAG.getUNDEF(MVT::i32),

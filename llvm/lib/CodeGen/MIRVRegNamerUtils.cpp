@@ -7,6 +7,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "MIRVRegNamerUtils.h"
+#include "llvm/CodeGen/MachineRegisterInfo.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/Support/Debug.h"
 
 using namespace llvm;
@@ -53,14 +55,25 @@ std::string VRegRenamer::getInstructionOpcodeHash(MachineInstr &MI) {
   // Gets a hashable artifact from a given MachineOperand (ie an unsigned).
   auto GetHashableMO = [this](const MachineOperand &MO) -> unsigned {
     switch (MO.getType()) {
-    case MachineOperand::MO_Immediate:
-      return MO.getImm();
-    case MachineOperand::MO_TargetIndex:
-      return MO.getOffset() | (MO.getTargetFlags() << 16);
+    case MachineOperand::MO_CImmediate:
+      return hash_combine(MO.getType(), MO.getTargetFlags(),
+                          MO.getCImm()->getZExtValue());
+    case MachineOperand::MO_FPImmediate:
+      return hash_combine(
+          MO.getType(), MO.getTargetFlags(),
+          MO.getFPImm()->getValueAPF().bitcastToAPInt().getZExtValue());
     case MachineOperand::MO_Register:
       if (Register::isVirtualRegister(MO.getReg()))
         return MRI.getVRegDef(MO.getReg())->getOpcode();
       return MO.getReg();
+    case MachineOperand::MO_Immediate:
+      return MO.getImm();
+    case MachineOperand::MO_TargetIndex:
+      return MO.getOffset() | (MO.getTargetFlags() << 16);
+    case MachineOperand::MO_FrameIndex:
+    case MachineOperand::MO_ConstantPoolIndex:
+    case MachineOperand::MO_JumpTableIndex:
+      return llvm::hash_value(MO);
 
     // We could explicitly handle all the types of the MachineOperand,
     // here but we can just return a common number until we find a
@@ -68,13 +81,8 @@ std::string VRegRenamer::getInstructionOpcodeHash(MachineInstr &MI) {
     // is contributing to a hash collision but there's enough information
     // (Opcodes,other registers etc) that this will likely not be a problem.
 
-    // TODO: Handle the following Immediate/Index/ID/Predicate cases. They can
+    // TODO: Handle the following Index/ID/Predicate cases. They can
     // be hashed on in a stable manner.
-    case MachineOperand::MO_CImmediate:
-    case MachineOperand::MO_FPImmediate:
-    case MachineOperand::MO_FrameIndex:
-    case MachineOperand::MO_ConstantPoolIndex:
-    case MachineOperand::MO_JumpTableIndex:
     case MachineOperand::MO_CFIIndex:
     case MachineOperand::MO_IntrinsicID:
     case MachineOperand::MO_Predicate:
@@ -106,7 +114,7 @@ std::string VRegRenamer::getInstructionOpcodeHash(MachineInstr &MI) {
     MIOperands.push_back((unsigned)Op->getOrdering());
     MIOperands.push_back((unsigned)Op->getAddrSpace());
     MIOperands.push_back((unsigned)Op->getSyncScopeID());
-    MIOperands.push_back((unsigned)Op->getBaseAlignment());
+    MIOperands.push_back((unsigned)Op->getBaseAlign().value());
     MIOperands.push_back((unsigned)Op->getFailureOrdering());
   }
 

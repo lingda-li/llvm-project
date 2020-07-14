@@ -40,9 +40,12 @@ protected:
 #include "AMDGPUGenRegisterBank.inc"
 };
 class AMDGPURegisterBankInfo : public AMDGPUGenRegisterBankInfo {
+public:
   const GCNSubtarget &Subtarget;
   const SIRegisterInfo *TRI;
   const SIInstrInfo *TII;
+
+  bool buildVCopy(MachineIRBuilder &B, Register DstReg, Register SrcReg) const;
 
   bool collectWaterfallOperands(
     SmallSet<Register, 4> &SGPROperandRegs,
@@ -66,13 +69,22 @@ class AMDGPURegisterBankInfo : public AMDGPUGenRegisterBankInfo {
 
   void constrainOpWithReadfirstlane(MachineInstr &MI, MachineRegisterInfo &MRI,
                                     unsigned OpIdx) const;
-  bool applyMappingWideLoad(MachineInstr &MI,
-                            const AMDGPURegisterBankInfo::OperandsMapper &OpdMapper,
-                            MachineRegisterInfo &MRI) const;
+  bool applyMappingDynStackAlloc(MachineInstr &MI,
+                                 const OperandsMapper &OpdMapper,
+                                 MachineRegisterInfo &MRI) const;
+  bool applyMappingLoad(MachineInstr &MI,
+                        const OperandsMapper &OpdMapper,
+                        MachineRegisterInfo &MRI) const;
   bool
   applyMappingImage(MachineInstr &MI,
-                    const AMDGPURegisterBankInfo::OperandsMapper &OpdMapper,
+                    const OperandsMapper &OpdMapper,
                     MachineRegisterInfo &MRI, int RSrcIdx) const;
+  bool applyMappingSBufferLoad(const OperandsMapper &OpdMapper) const;
+
+  bool applyMappingBFEIntrinsic(const OperandsMapper &OpdMapper,
+                                bool Signed) const;
+
+  void lowerScalarMinMax(MachineIRBuilder &B, MachineInstr &MI) const;
 
   Register handleD16VData(MachineIRBuilder &B, MachineRegisterInfo &MRI,
                           Register Reg) const;
@@ -85,6 +97,9 @@ class AMDGPURegisterBankInfo : public AMDGPUGenRegisterBankInfo {
 
   /// See RegisterBankInfo::applyMapping.
   void applyMappingImpl(const OperandsMapper &OpdMapper) const override;
+
+  const ValueMapping *getValueMappingForPtr(const MachineRegisterInfo &MRI,
+                                            Register Ptr) const;
 
   const RegisterBankInfo::InstructionMapping &
   getInstrMappingForLoad(const MachineInstr &MI) const;
@@ -155,14 +170,23 @@ public:
   unsigned getBreakDownCost(const ValueMapping &ValMapping,
                             const RegisterBank *CurBank = nullptr) const override;
 
-  const RegisterBank &
-  getRegBankFromRegClass(const TargetRegisterClass &RC) const override;
+  const RegisterBank &getRegBankFromRegClass(const TargetRegisterClass &RC,
+                                             LLT) const override;
 
   InstructionMappings
   getInstrAlternativeMappings(const MachineInstr &MI) const override;
 
   const InstructionMapping &
   getInstrMapping(const MachineInstr &MI) const override;
+
+private:
+
+  bool foldExtractEltToCmpSelect(MachineInstr &MI,
+                                 MachineRegisterInfo &MRI,
+                                 const OperandsMapper &OpdMapper) const;
+  bool foldInsertEltToCmpSelect(MachineInstr &MI,
+                                MachineRegisterInfo &MRI,
+                                const OperandsMapper &OpdMapper) const;
 };
 } // End llvm namespace.
 #endif

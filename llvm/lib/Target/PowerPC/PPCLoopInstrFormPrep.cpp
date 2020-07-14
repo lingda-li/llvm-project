@@ -53,7 +53,6 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolution.h"
-#include "llvm/Analysis/ScalarEvolutionExpander.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
@@ -74,6 +73,7 @@
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
+#include "llvm/Transforms/Utils/ScalarEvolutionExpander.h"
 #include <cassert>
 #include <iterator>
 #include <utility>
@@ -244,10 +244,10 @@ INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_END(PPCLoopInstrFormPrep, DEBUG_TYPE, name, false, false)
 
-static const std::string PHINodeNameSuffix    = ".phi";
-static const std::string CastNodeNameSuffix   = ".cast";
-static const std::string GEPNodeIncNameSuffix = ".inc";
-static const std::string GEPNodeOffNameSuffix = ".off";
+static constexpr StringRef PHINodeNameSuffix    = ".phi";
+static constexpr StringRef CastNodeNameSuffix   = ".cast";
+static constexpr StringRef GEPNodeIncNameSuffix = ".inc";
+static constexpr StringRef GEPNodeOffNameSuffix = ".off";
 
 FunctionPass *llvm::createPPCLoopInstrFormPrepPass(PPCTargetMachine &TM) {
   return new PPCLoopInstrFormPrep(TM);
@@ -263,7 +263,7 @@ static bool IsPtrInBounds(Value *BasePtr) {
   return false;
 }
 
-static std::string getInstrName(const Value *I, const std::string Suffix) {
+static std::string getInstrName(const Value *I, StringRef Suffix) {
   assert(I && "Invalid paramater!");
   if (I->hasName())
     return (I->getName() + Suffix).str();
@@ -550,7 +550,7 @@ bool PPCLoopInstrFormPrep::rewriteLoadStores(Loop *L, Bucket &BucketChain,
 
   // Note that LoopPredecessor might occur in the predecessor list multiple
   // times, and we need to add it the right number of times.
-  for (const auto &PI : predecessors(Header)) {
+  for (auto PI : predecessors(Header)) {
     if (PI != LoopPredecessor)
       continue;
 
@@ -565,7 +565,7 @@ bool PPCLoopInstrFormPrep::rewriteLoadStores(Loop *L, Bucket &BucketChain,
         I8Ty, NewPHI, BasePtrIncSCEV->getValue(),
         getInstrName(MemI, GEPNodeIncNameSuffix), InsPoint);
     cast<GetElementPtrInst>(PtrInc)->setIsInBounds(IsPtrInBounds(BasePtr));
-    for (const auto &PI : predecessors(Header)) {
+    for (auto PI : predecessors(Header)) {
       if (PI == LoopPredecessor)
         continue;
 
@@ -580,7 +580,7 @@ bool PPCLoopInstrFormPrep::rewriteLoadStores(Loop *L, Bucket &BucketChain,
   } else {
     // Note that LoopPredecessor might occur in the predecessor list multiple
     // times, and we need to make sure no more incoming value for them in PHI.
-    for (const auto &PI : predecessors(Header)) {
+    for (auto PI : predecessors(Header)) {
       if (PI == LoopPredecessor)
         continue;
 
@@ -846,11 +846,15 @@ bool PPCLoopInstrFormPrep::runOnLoop(Loop *L) {
   // Check if a load/store has DS form.
   auto isDSFormCandidate = [] (const Instruction *I, const Value *PtrValue) {
     assert((PtrValue && I) && "Invalid parameter!");
-    // FIXME: 32 bit instruction lwa is also DS form.
-    return !isa<IntrinsicInst>(I) &&
-           ((PtrValue->getType()->getPointerElementType()->isIntegerTy(64)) ||
-            (PtrValue->getType()->getPointerElementType()->isFloatTy()) ||
-            (PtrValue->getType()->getPointerElementType()->isDoubleTy()));
+    if (isa<IntrinsicInst>(I))
+      return false;
+    Type *PointerElementType = PtrValue->getType()->getPointerElementType();
+    return (PointerElementType->isIntegerTy(64)) ||
+           (PointerElementType->isFloatTy()) ||
+           (PointerElementType->isDoubleTy()) ||
+           (PointerElementType->isIntegerTy(32) &&
+            llvm::any_of(I->users(),
+                         [](const User *U) { return isa<SExtInst>(U); }));
   };
 
   // Check if a load/store has DQ form.

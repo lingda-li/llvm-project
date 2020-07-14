@@ -1,4 +1,4 @@
-class ASTNode;
+include "clang/Basic/ASTNode.td"
 
 class TypeNode<TypeNode base, bit abstract = 0> : ASTNode {
 	TypeNode Base = base;
@@ -69,6 +69,9 @@ def DependentAddressSpaceType : TypeNode<Type>, AlwaysDependent;
 def VectorType : TypeNode<Type>;
 def DependentVectorType : TypeNode<Type>, AlwaysDependent;
 def ExtVectorType : TypeNode<VectorType>;
+def MatrixType : TypeNode<Type, 1>;
+def ConstantMatrixType : TypeNode<MatrixType>;
+def DependentSizedMatrixType : TypeNode<MatrixType>, AlwaysDependent;
 def FunctionType : TypeNode<Type, 1>;
 def FunctionProtoType : TypeNode<FunctionType>;
 def FunctionNoProtoType : TypeNode<FunctionType>;
@@ -104,3 +107,5 @@ def ObjCInterfaceType : TypeNode<ObjCObjectType>, LeafType;
 def ObjCObjectPointerType : TypeNode<Type>;
 def PipeType : TypeNode<Type>;
 def AtomicType : TypeNode<Type>;
+def ExtIntType : TypeNode<Type>;
+def DependentExtIntType : TypeNode<Type>, AlwaysDependent;

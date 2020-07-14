@@ -24,10 +24,10 @@ struct A {
   friend bool operator>=(const A&, const A&) = default;
 };
 struct TestA {
-  friend constexpr bool operator==(const A&, const A&);
-  friend constexpr bool operator!=(const A&, const A&);
+  friend constexpr bool operator==(const A&, const A&) noexcept;
+  friend constexpr bool operator!=(const A&, const A&) noexcept;
 
-  friend constexpr std::strong_ordering operator<=>(const A&, const A&);
+  friend constexpr std::strong_ordering operator<=>(const A&, const A&) noexcept;
   friend constexpr bool operator<(const A&, const A&);
   friend constexpr bool operator<=(const A&, const A&);
   friend constexpr bool operator>(const A&, const A&);
@@ -51,10 +51,10 @@ struct TestReversedA {
   friend constexpr bool operator>(const ReversedA&, const ReversedA&);
   friend constexpr bool operator<=(const ReversedA&, const ReversedA&);
   friend constexpr bool operator<(const ReversedA&, const ReversedA&);
-  friend constexpr std::strong_ordering operator<=>(const ReversedA&, const ReversedA&);
+  friend constexpr std::strong_ordering operator<=>(const ReversedA&, const ReversedA&) noexcept;
 
-  friend constexpr bool operator!=(const ReversedA&, const ReversedA&);
-  friend constexpr bool operator==(const ReversedA&, const ReversedA&);
+  friend constexpr bool operator!=(const ReversedA&, const ReversedA&) noexcept;
+  friend constexpr bool operator==(const ReversedA&, const ReversedA&) noexcept;
 };
 
 struct B {
@@ -69,8 +69,8 @@ struct B {
   friend bool operator>=(const B&, const B&) = default;
 };
 struct TestB {
-  friend constexpr bool operator==(const B&, const B&);
-  friend constexpr bool operator!=(const B&, const B&);
+  friend constexpr bool operator==(const B&, const B&) noexcept;
+  friend constexpr bool operator!=(const B&, const B&) noexcept;
 
   friend constexpr std::strong_ordering operator<=>(const B&, const B&);
   friend constexpr bool operator<(const B&, const B&);
@@ -190,3 +190,15 @@ bool operator<(const G&, const G&);
 bool operator<=(const G&, const G&);
 bool operator>(const G&, const G&);
 bool operator>=(const G&, const G&);
+
+namespace PR44721 {
+  template <typename T> bool operator==(T const &, T const &) { return true; }
+  template <typename T, typename U> bool operator!=(T const &, U const &) { return true; }
+  template <typename T> int operator<=>(T const &, T const &) { return 0; }
+
+  struct S {
+    friend bool operator==(const S &, const S &) = default;
+    friend bool operator<=>(const S &, const S &) = default;
+    int x;
+  };
+}

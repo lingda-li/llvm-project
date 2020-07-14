@@ -40,6 +40,10 @@ def SDT_ZWrapOffset         : SDTypeProfile<1, 2,
                                              SDTCisSameAs<0, 2>,
                                              SDTCisPtrTy<0>]>;
 def SDT_ZAdjDynAlloc        : SDTypeProfile<1, 0, [SDTCisVT<0, i64>]>;
+def SDT_ZProbedAlloca       : SDTypeProfile<1, 2,
+                                            [SDTCisSameAs<0, 1>,
+                                             SDTCisSameAs<0, 2>,
+                                             SDTCisPtrTy<0>]>;
 def SDT_ZGR128Binary        : SDTypeProfile<1, 2,
                                             [SDTCisVT<0, untyped>,
                                              SDTCisInt<1>,
@@ -269,6 +273,8 @@ def z_select_ccmask_1   : SDNode<"SystemZISD::SELECT_CCMASK",
                                  SDT_ZSelectCCMask>;
 def z_ipm_1             : SDNode<"SystemZISD::IPM", SDT_ZIPM>;
 def z_adjdynalloc       : SDNode<"SystemZISD::ADJDYNALLOC", SDT_ZAdjDynAlloc>;
+def z_probed_alloca     : SDNode<"SystemZISD::PROBED_ALLOCA", SDT_ZProbedAlloca,
+                                 [SDNPHasChain]>;
 def z_popcnt            : SDNode<"SystemZISD::POPCNT", SDTIntUnaryOp>;
 def z_smul_lohi         : SDNode<"SystemZISD::SMUL_LOHI", SDT_ZGR128Binary>;
 def z_umul_lohi         : SDNode<"SystemZISD::UMUL_LOHI", SDT_ZGR128Binary>;
@@ -353,6 +359,8 @@ def z_vextend           : SDNode<"SystemZISD::VEXTEND", SDT_ZVecUnaryConv>;
 def z_strict_vextend    : SDNode<"SystemZISD::STRICT_VEXTEND",
                                  SDT_ZVecUnaryConv, [SDNPHasChain]>;
 def z_vround            : SDNode<"SystemZISD::VROUND", SDT_ZVecUnaryConv>;
+def z_strict_vround     : SDNode<"SystemZISD::STRICT_VROUND",
+                                 SDT_ZVecUnaryConv, [SDNPHasChain]>;
 def z_vtm               : SDNode<"SystemZISD::VTM", SDT_ZCmp>;
 def z_vfae_cc           : SDNode<"SystemZISD::VFAE_CC", SDT_ZVecTernaryIntCC>;
 def z_vfaez_cc          : SDNode<"SystemZISD::VFAEZ_CC", SDT_ZVecTernaryIntCC>;
@@ -372,7 +380,7 @@ def z_vstrsz_cc         : SDNode<"SystemZISD::VSTRSZ_CC",
 def z_vftci             : SDNode<"SystemZISD::VFTCI", SDT_ZVecBinaryConvIntCC>;
 
 class AtomicWOp<string name, SDTypeProfile profile = SDT_ZAtomicLoadBinaryW>
-  : SDNode<"SystemZISD::"##name, profile,
+  : SDNode<"SystemZISD::"#name, profile,
            [SDNPHasChain, SDNPMayStore, SDNPMayLoad, SDNPMemOperand]>;
 
 def z_atomic_swapw      : AtomicWOp<"ATOMIC_SWAPW">;
@@ -741,6 +749,9 @@ def z_any_vfcmphe : PatFrags<(ops node:$lhs, node:$rhs),
 def z_any_vextend : PatFrags<(ops node:$src),
                              [(z_strict_vextend node:$src),
                               (z_vextend node:$src)]>;
+def z_any_vround  : PatFrags<(ops node:$src),
+                             [(z_strict_vround node:$src),
+                              (z_vround node:$src)]>;
 
 // Create a unary operator that loads from memory and then performs
 // the given operation on it.
